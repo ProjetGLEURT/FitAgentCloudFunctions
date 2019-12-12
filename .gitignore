@@ -102,3 +102,6 @@ dist
 
 # TernJS port file
 .tern-port
+
+#credentials
+functions/service-account.json
