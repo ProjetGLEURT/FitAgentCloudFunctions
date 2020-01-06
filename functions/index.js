@@ -11,18 +11,12 @@ process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
 
 //À CONFIGURER, À METTRE DANS UN FICHIER PUIS GITIGNORE
-var config = {
-    apiKey: "************************",
-    authDomain: "************************",
-    databaseURL: "************************",
-    projectId: "************************",
-    storageBucket: "************************",
-    messagingSenderId: "************************",
-};
+var firebaseConfig = require("firebaseconfig.json")
 
 
 
-firebase.initializeApp(config);
+
+firebase.initializeApp(firebaseConfig);
 
 
 const dbRef = firebase.database().ref();
