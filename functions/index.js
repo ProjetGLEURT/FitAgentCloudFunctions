@@ -5,14 +5,12 @@
 const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
+const firebase = require('firebase');
 
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
 
-
-//À CONFIGURER, À METTRE DANS UN FICHIER PUIS GITIGNORE
-var firebaseConfig = require("firebaseconfig.json")
-
+var firebaseConfig = require("./firebaseconfig.json")
 
 
 
@@ -41,17 +39,50 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
    // below to get this function to be run when a Dialogflow intent is matched
    function addUserInfosToFirebase(agent) {
-    data = {infos:
+
+    var data = {infos:
         {
-            nom:"test",
-            preference:"afternoon"
+            nom: agent.contexts[0].parameters.any,
+            preference:"afternoon",
         }
     }
-    usersRef.push()
+    usersRef.push(data)
     //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-     agent.add(`This message is from Dialogflow's Cloud Functions for Firebase editor!`);
+     agent.add(`Ok vous êtes inscrit - enregistrez une nouvelle activité ?`);
      
-     agent.setContext({ name: 'activityRegistred', lifespan: 2, parameters: { city: 'Rome' }});
+     agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});
+   }
+
+
+   function computeDuration(durationUnit, durationAmount)
+   {
+    if(durationUnit === "heure")
+        return (durationAmount * 60);
+    return durationAmount;
+   }
+   
+   function addUserActivityToFirebase(agent) {
+
+    console.log(agent.contexts[0].parameters)
+
+    //myUser = usersRef.child().child("name").equalTo("david");
+    //console.log(myUser)
+    var durationUnit = agent.contexts[0].parameters.duration.unit;
+    var durationAmount = agent.contexts[0].parameters.duration.amount;
+    var durationInMinute = computeDuration(durationUnit, durationAmount);
+
+    var data = {activities:
+        {
+            nom: agent.contexts[0].parameters.sport,
+            frequence:agent.contexts[0].parameters.frequence,
+            duration:durationInMinute,
+        }
+    }
+    usersRef.push(data)
+    //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
+     agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
+     
+     agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});
    }
 
 
@@ -63,6 +94,9 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
   intentMap.set('Default Welcome Intent', welcome);
   intentMap.set('Default Fallback Intent', fallback);
   intentMap.set('add User', addUserInfosToFirebase);
+  intentMap.set('New Activity', addUserActivityToFirebase);
+
+  
   // intentMap.set('your intent name here', googleAssistantHandler);
   agent.handleRequest(intentMap);
 });
