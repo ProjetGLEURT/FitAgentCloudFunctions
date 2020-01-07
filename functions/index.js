@@ -26,14 +26,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
   console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
   console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
 
-  function welcome(agent) {
-      agent.add(`Welcome to my agent!`);
-  }
-
-  function fallback(agent) {
-      agent.add(`I didn't understand`);
-      agent.add(`I'm sorry, can you try again?`);
-  }
 
    // Uncomment and edit to make your own intent handler
    // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
@@ -62,14 +54,14 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    }
    
    function addUserActivityToFirebase(agent) {
-
-    usersRef.orderByChild('infos/nom').equalTo('david').on("value", function(snapshot) {
+    var key;
+   /* usersRef.orderByChild('infos/nom').equalTo('david').on("value", function(snapshot) {
         console.log(snapshot.val());
         snapshot.forEach(function(data) {
-            console.log(data);
+            console.log(data.key);
         });
-    });
-    //console.log(agent.contexts[0].parameters)
+    });*/
+    console.log(key)
 
     //myUser = usersRef.child().child("name").equalTo("david");
     //console.log(myUser)
@@ -92,13 +84,14 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    }
 
 
+
+
+
    // See https://github.com/dialogflow/fulfillment-actions-library-nodejs
    // for a complete Dialogflow fulfillment library Actions on Google client library v2 integration sample
 
   // Run the proper function handler based on the matched Dialogflow intent name
   let intentMap = new Map();
-  intentMap.set('Default Welcome Intent', welcome);
-  intentMap.set('Default Fallback Intent', fallback);
   intentMap.set('add User', addUserInfosToFirebase);
   intentMap.set('New Activity', addUserActivityToFirebase);
 
