@@ -63,7 +63,13 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    
    function addUserActivityToFirebase(agent) {
 
-    console.log(agent.contexts[0].parameters)
+    usersRef.orderByChild('infos/nom').equalTo('david').on("value", function(snapshot) {
+        console.log(snapshot.val());
+        snapshot.forEach(function(data) {
+            console.log(data);
+        });
+    });
+    //console.log(agent.contexts[0].parameters)
 
     //myUser = usersRef.child().child("name").equalTo("david");
     //console.log(myUser)
