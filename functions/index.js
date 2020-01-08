@@ -54,17 +54,39 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    }
    
    function addUserActivityToFirebase(agent) {
-
     var test = Promise.resolve(usersRef.orderByChild('infos/nom').equalTo('david').on("value", snapshot => {
-        console.log('premier :', snapshot.val());
+        console.log('premier :', snapshot);
         return snapshot.val();
         /*snapshot.forEach(function(data) {
             return data.key;
         })*/
     }));
 
-    test.then(val => {
-        agent.add(`WAAW`);
+    return test.then(val => {
+        
+        console.log(val.val())
+        console.log("BAH VOYONS")
+        console.log(agent.contexts[0].parameters)
+
+        //myUser = usersRef.child().child("name").equalTo("david");
+        //console.log(myUser)
+        var durationUnit = agent.contexts[0].parameters.duration.unit;
+        var durationAmount = agent.contexts[0].parameters.duration.amount;
+        var durationInMinute = computeDuration(durationUnit, durationAmount);
+
+        var donnee = {activities:
+            {
+                nom: agent.contexts[0].parameters.sport,
+                frequence:agent.contexts[0].parameters.frequence,
+                duration:durationInMinute,
+            }
+        }
+        usersRef.push(donnee)
+        //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
+        agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
+        
+        agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});
+
         return 0;
     })
     .catch(err => {
@@ -72,33 +94,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         agent.add(`WOOOW BUG`);
         return 0;
     });
-/*
-    test.then(val => { console.log("test", test); return 0;})
-    .catch(err => {
-        console.log(err)});*/
-/*
-    console.log("voila", test)
-    
-    console.log(agent.contexts[0].parameters)
 
-    //myUser = usersRef.child().child("name").equalTo("david");
-    //console.log(myUser)
-    var durationUnit = agent.contexts[0].parameters.duration.unit;
-    var durationAmount = agent.contexts[0].parameters.duration.amount;
-    var durationInMinute = computeDuration(durationUnit, durationAmount);
 
-    var donnee = {activities:
-        {
-            nom: agent.contexts[0].parameters.sport,
-            frequence:agent.contexts[0].parameters.frequence,
-            duration:durationInMinute,
-        }
-    }
-    usersRef.push(donnee)
-    //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-     agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
-     
-     agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});*/
    }
 
 
