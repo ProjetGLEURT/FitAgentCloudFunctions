@@ -55,13 +55,29 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    
    function addUserActivityToFirebase(agent) {
 
-    usersRef.orderByChild('infos/nom').equalTo('david').on("value", function(snapshot) {
-        console.log(snapshot.val());
-        snapshot.forEach(function(data) {
-            console.log(data.key);
-        });
-    });
+    var test = Promise.resolve(usersRef.orderByChild('infos/nom').equalTo('david').on("value", snapshot => {
+        console.log('premier :', snapshot.val());
+        return snapshot.val();
+        /*snapshot.forEach(function(data) {
+            return data.key;
+        })*/
+    }));
 
+    test.then(val => {
+        agent.add(`WAAW`);
+        return 0;
+    })
+    .catch(err => {
+        console.log(err);
+        agent.add(`WOOOW BUG`);
+        return 0;
+    });
+/*
+    test.then(val => { console.log("test", test); return 0;})
+    .catch(err => {
+        console.log(err)});*/
+/*
+    console.log("voila", test)
     
     console.log(agent.contexts[0].parameters)
 
@@ -71,18 +87,18 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     var durationAmount = agent.contexts[0].parameters.duration.amount;
     var durationInMinute = computeDuration(durationUnit, durationAmount);
 
-    var data = {activities:
+    var donnee = {activities:
         {
             nom: agent.contexts[0].parameters.sport,
             frequence:agent.contexts[0].parameters.frequence,
             duration:durationInMinute,
         }
     }
-    usersRef.push(data)
+    usersRef.push(donnee)
     //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
      agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
      
-     agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});
+     agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});*/
    }
 
 
