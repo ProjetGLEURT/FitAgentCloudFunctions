@@ -54,34 +54,32 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    }
    
    function addUserActivityToFirebase(agent) {
-    var test = Promise.resolve(usersRef.orderByChild('infos/nom').equalTo('david').on("value", snapshot => {
-        console.log('premier :', snapshot);
-        return snapshot.val();
-        /*snapshot.forEach(function(data) {
-            return data.key;
-        })*/
-    }));
+    var test = Promise.resolve(usersRef.orderByChild('infos/nom').equalTo('david').once("value"));
 
-    return test.then(val => {
+    return test.then(data => {
         
-        console.log(val.val())
+        console.log(data.val())
+        var idUser = Object.keys(data.val())[0];
+        console.log(idUser)
+        const monUserRef = usersRef.child(idUser);
+        const monUserActsRef = monUserRef.child('activities');
+
+        
+        
         console.log("BAH VOYONS")
         console.log(agent.contexts[0].parameters)
 
-        //myUser = usersRef.child().child("name").equalTo("david");
-        //console.log(myUser)
         var durationUnit = agent.contexts[0].parameters.duration.unit;
         var durationAmount = agent.contexts[0].parameters.duration.amount;
         var durationInMinute = computeDuration(durationUnit, durationAmount);
 
-        var donnee = {activities:
-            {
+        var donnee = {
                 nom: agent.contexts[0].parameters.sport,
                 frequence:agent.contexts[0].parameters.frequence,
                 duration:durationInMinute,
-            }
         }
-        usersRef.push(donnee)
+
+        monUserActsRef.push(donnee)
         //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
         agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
         
