@@ -124,19 +124,28 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         var durationInMinute = computeDuration(durationUnit, durationAmount);
 
         var confirmationDemandee = false;
-        if(agent.contexts[2]!==undefined && agent.contexts[2].parameters.confirmationDemandee === true)
+        if(agent.contexts[agent.contexts.length-2]!==undefined && agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee === true)
             confirmationDemandee = true
         var nameSport = agent.contexts[0].parameters.sport
 
+        var homeTimeAmount = -1
+        var workTimeAmount = -1
+        if(agent.contexts[0].parameters.homeTime !== undefined)
+            homeTimeAmount = agent.contexts[0].parameters.homeTime.amount;
+        if(agent.contexts[0].parameters.workTime !== undefined)
+            workTimeAmount = agent.contexts[0].parameters.workTime.amount;
 
         var donnee = {
             name: nameSport,
             placeType: agent.contexts[0].parameters.placeType,
-            adresse: "Talence, 105 avenue Jean Jaurès",
+            address:  agent.contexts[0].parameters.address,
+            homeTime:  homeTimeAmount,
+            workTime:  workTimeAmount,
             frequence:agent.contexts[0].parameters.frequence,
             nbSeance:agent.contexts[0].parameters.nbSeance,
             duration:durationInMinute,
         }
+
         var promesseRequeteSport = Promise.resolve(myUserActsRef.orderByChild('name').equalTo(nameSport).once("value"));
 
         return promesseRequeteSport.then(data => {
