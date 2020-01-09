@@ -20,6 +20,11 @@ firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
 
+exports.test = functions.https.onRequest((request, response) => {
+    console.log("waaaw c'est appelé");
+    response.send("waaaw c'est appelé");
+    return 0;
+});
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
   const agent = new WebhookClient({ request, response });
@@ -32,17 +37,21 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    // below to get this function to be run when a Dialogflow intent is matched
    function addUserInfosToFirebase(agent) {
 
+    name = agent.contexts[0].parameters.any;
+
+
     var data = {infos:
         {
-            nom: agent.contexts[0].parameters.any,
+            name: name,
             preference:"afternoon",
+            adresse:"9 rue Jean Luc Mélenchon",
         }
     }
     usersRef.push(data)
     //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
      agent.add(`Ok vous êtes inscrit - enregistrez une nouvelle activité ?`);
      
-     agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});
+     agent.context.set({ name: 'New Activity', lifespan: 2, parameters: { }});
    }
 
 
@@ -52,44 +61,84 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         return (durationAmount * 60);
     return durationAmount;
    }
+
+
    
    function addUserActivityToFirebase(agent) {
-    var test = Promise.resolve(usersRef.orderByChild('infos/nom').equalTo('david').once("value"));
 
-    return test.then(data => {
+
+
+
+    var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
+
+    return promesseRequeteUser.then(data => {
         
         console.log(data.val())
         var idUser = Object.keys(data.val())[0];
         console.log(idUser)
-        const monUserRef = usersRef.child(idUser);
-        const monUserActsRef = monUserRef.child('activities');
+        const myUserRef = usersRef.child(idUser);
+        const myUserActsRef = myUserRef.child('activities');
 
         
         
         console.log("BAH VOYONS")
-        console.log(agent.contexts[0].parameters)
+        console.log(agent.contexts)
 
+        //calcul durée séance
         var durationUnit = agent.contexts[0].parameters.duration.unit;
         var durationAmount = agent.contexts[0].parameters.duration.amount;
         var durationInMinute = computeDuration(durationUnit, durationAmount);
 
+        var confirmationDemandee = false;
+        if(agent.contexts[2]!==undefined && agent.contexts[2].parameters.confirmationDemandee === true)
+            confirmationDemandee = true
+        var nameSport = agent.contexts[0].parameters.sport
+
+
         var donnee = {
-                nom: agent.contexts[0].parameters.sport,
-                frequence:agent.contexts[0].parameters.frequence,
-                duration:durationInMinute,
+            name: nameSport,
+            placeType: agent.contexts[0].parameters.placeType,
+            adresse: "Talence, 105 avenue Jean Jaurès",
+            frequence:agent.contexts[0].parameters.frequence,
+            nbSeance:agent.contexts[0].parameters.nbSeance,
+            duration:durationInMinute,
         }
+        var promesseRequeteSport = Promise.resolve(myUserActsRef.orderByChild('name').equalTo(nameSport).once("value"));
 
-        monUserActsRef.push(donnee)
-        //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-        agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
-        
-        agent.setContext({ name: 'New Activity', lifespan: 2, parameters: { }});
+        return promesseRequeteSport.then(data => {
 
-        return 0;
+            console.log("data", data.val())
+            console.log("parameters", agent.contexts[0].parameters)
+            if(data.val() === null || confirmationDemandee)
+            {
+                agent.add(`WOOOW ON EST LÀ`);
+
+                //type lieu = dehors, salle, chez soi
+
+                myUserActsRef.push(donnee)
+                //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
+                agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
+                
+                agent.context.set({ name: 'New Activity', lifespan: 2, parameters: { }});
+            }
+            else{
+
+                donnee.confirmationDemandee = true;
+
+                agent.context.set({ name: 'New Activity - yes', lifespan: 2, parameters: donnee });
+                agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
+            }
+            return 0;
+        })
+        .catch(err => {
+            console.log(err);
+            agent.add(`WOOOW BUG VERIF SPORT 1001`);
+            return 0;
+        });
     })
     .catch(err => {
         console.log(err);
-        agent.add(`WOOOW BUG`);
+        agent.add(`WOOOW BUG 1000`);
         return 0;
     });
 
@@ -106,7 +155,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
   // Run the proper function handler based on the matched Dialogflow intent name
   let intentMap = new Map();
   intentMap.set('add User', addUserInfosToFirebase);
-  intentMap.set('New Activity', addUserActivityToFirebase);
+  intentMap.set('New Activity - yes', addUserActivityToFirebase);
 
   
   // intentMap.set('your intent name here', googleAssistantHandler);
