@@ -9,10 +9,7 @@ const firebase = require('firebase');
 
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
-
-var firebaseConfig = require("./firebaseconfig.json")
-
-
+const firebaseConfig = require("./firebaseconfig.json");
 
 firebase.initializeApp(firebaseConfig);
 
@@ -20,6 +17,36 @@ firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
 
+const {addNewEventToGoogleCalendar} = require('./addNewEventToCalendar');
+
+exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/events/{eventId}')
+    .onCreate((snapshot, context) => {
+        const event = snapshot.val();
+        const eventData = {
+            summary: 'Google I/O 2015',
+            location: '1 Avenue du Dr Albert Schweitzer, 33400 Talence',
+            description: 'Represent our final project',
+            start: {
+                dateTime: '2019-01-10T09:00:00-09:00',
+                timeZone: 'Europe/Paris'
+            },
+            end: {
+                dateTime: '2019-01-10T09:00:00-10:00',
+                timeZone: 'Europe/Paris'
+            },
+            recurrence: ['RRULE:FREQ=DAILY;COUNT=1'],
+            attendees: [],
+            reminders: {
+                useDefault: false,
+                overrides: [
+                    { method: 'popup', minutes: 10 }
+                ]
+            }
+        };
+
+        const token = snapshot.ref.parent.parent.parent.child('infos/token').val();
+        addNewEventToGoogleCalendar(eventData, token);
+});
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response) => {
 
@@ -29,7 +56,7 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response)
     var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
 
     return promesseRequeteUser.then(data => {
-        
+
         var idUser = Object.keys(data.val())[0];
         const myUserRef = usersRef.child(idUser);
         const myUserActsRef = myUserRef.child('activities');
@@ -89,7 +116,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     usersRef.push(data)
     //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
      agent.add(`Ok vous êtes inscrit - enregistrez une nouvelle activité ?`);
-     
+
      agent.context.set({ name: 'New Activity', lifespan: 2, parameters: { }});
    }
 
@@ -102,19 +129,19 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    }
 
 
-   
+
    function addUserActivityToFirebase(agent) {
 
     var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
 
     return promesseRequeteUser.then(data => {
-        
+
         var idUser = Object.keys(data.val())[0];
         const myUserRef = usersRef.child(idUser);
         const myUserActsRef = myUserRef.child('activities');
 
-        
-        
+
+
         console.log("BAH VOYONS")
         console.log(agent.contexts)
 
@@ -169,7 +196,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
                 myUserActsRef.push(donnee)
                 //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
                 agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
-                
+
                 agent.context.set({ name: 'New Activity', lifespan: 2, parameters: { }});
             }
             else{

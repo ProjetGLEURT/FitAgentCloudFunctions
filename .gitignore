@@ -106,3 +106,4 @@ dist
 #credentials
 functions/service-account.json
 functions/firebaseconfig.json
+functions/credentials.json
