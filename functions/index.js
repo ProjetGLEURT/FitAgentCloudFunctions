@@ -20,10 +20,49 @@ firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
 
-exports.test = functions.https.onRequest((request, response) => {
-    console.log("waaaw c'est appelé");
-    response.send("waaaw c'est appelé");
-    return 0;
+
+exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response) => {
+
+    var id = request.query.id;
+
+
+    var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
+
+    return promesseRequeteUser.then(data => {
+        
+        var idUser = Object.keys(data.val())[0];
+        const myUserRef = usersRef.child(idUser);
+        const myUserActsRef = myUserRef.child('activities');
+        console.log("id: ")
+        console.log(id)
+        console.log("myUserActsRef")
+        console.log(myUserActsRef)
+        myUserActsRef.child(id).remove();
+        response.send("Suppression effectuée")
+        return 0;
+    })
+    .catch(err => {
+        console.log(err);
+        response.send("ERREUR 1003", err);
+        return 0;
+    });
+});
+
+exports.apiActiviteUser = functions.https.onRequest((request, response) => {
+    var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
+
+    return promesseRequeteUser.then(data => {
+        var idUser = Object.keys(data.val())[0];
+        const myUserActsRef = data.val()[idUser].activities;
+        //const myUserActsRef = myUserRef.child('activities');
+        response.send(myUserActsRef);
+        return 0;
+    })
+    .catch(err => {
+        console.log(err);
+        response.send("ERREUR 1002", err);
+        return 0;
+    });
 });
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
@@ -66,16 +105,11 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
    
    function addUserActivityToFirebase(agent) {
 
-
-
-
     var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
 
     return promesseRequeteUser.then(data => {
         
-        console.log(data.val())
         var idUser = Object.keys(data.val())[0];
-        console.log(idUser)
         const myUserRef = usersRef.child(idUser);
         const myUserActsRef = myUserRef.child('activities');
 
