@@ -124,15 +124,23 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         var durationInMinute = computeDuration(durationUnit, durationAmount);
 
         var confirmationDemandee = false;
-        if(agent.contexts[agent.contexts.length-2]!==undefined && agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee === true)
-            confirmationDemandee = true
+        try{
+            confirmationDemandee = agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee;
+        }
+        catch(error){
+            console.log("ERROR 1005 : ")
+            console.log(error)
+            confirmationDemandee = false
+        }
+        /*if(agent.contexts[agent.contexts.length-2]!==undefined && agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee === true)
+            confirmationDemandee = true*/
         var nameSport = agent.contexts[0].parameters.sport
 
         var homeTimeAmount = -1
         var workTimeAmount = -1
-        if(agent.contexts[0].parameters.homeTime !== undefined)
+        if(agent.contexts[0].parameters.homeTime !== undefined && agent.contexts[0].parameters.homeTime.amount !== undefined)
             homeTimeAmount = agent.contexts[0].parameters.homeTime.amount;
-        if(agent.contexts[0].parameters.workTime !== undefined)
+        if(agent.contexts[0].parameters.workTime !== undefined && agent.contexts[0].parameters.workTime.amount !== undefined)
             workTimeAmount = agent.contexts[0].parameters.workTime.amount;
 
         var donnee = {
