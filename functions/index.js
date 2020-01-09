@@ -9,7 +9,7 @@ const firebase = require('firebase');
 
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
-var firebaseConfig = require("./firebaseconfig.json");
+const firebaseConfig = require("./firebaseconfig.json");
 
 firebase.initializeApp(firebaseConfig);
 
