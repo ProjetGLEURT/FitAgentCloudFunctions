@@ -12,7 +12,7 @@ process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 const firebaseConfig = require("./firebaseconfig.json");
 
 firebase.initializeApp(firebaseConfig);
-
+const cors = require('cors')({origin: true});
 
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
@@ -49,7 +49,6 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/events/{
 });
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response) => {
-
     var id = request.query.id;
 
 
@@ -76,6 +75,7 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response)
 });
 
 exports.apiActiviteUser = functions.https.onRequest((request, response) => {
+
     var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
 
     return promesseRequeteUser.then(data => {
@@ -144,6 +144,32 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
         console.log("BAH VOYONS")
         console.log(agent.contexts)
+
+        var numContexte = 0
+        for(var i = 0; i < agent.contexts.length;i++)
+        {
+            console.log(agent.contexts[i]);
+            if(agent.contexts[i].parameters.name === 'newactivity-followup')
+            {
+                numContexte = i;
+                break;
+            }
+        }
+        console.log("numContexte : ")
+        console.log(numContexte)
+
+        var numContexteValidationDemandee = 0 //contexte auquel en théorie, la variable sera rajoutée
+        for(var j = 0; j < agent.contexts.length;j++)
+        {
+            if(agent.contexts[j].parameters.name === 'new activity - yes')
+            {
+                numContexteValidationDemandee = j;
+                break;
+            }
+        }
+        console.log("numContexteValidationDemandee : ")
+        console.log(numContexteValidationDemandee)
+
 
         //calcul durée séance
         var durationUnit = agent.contexts[0].parameters.duration.unit;
