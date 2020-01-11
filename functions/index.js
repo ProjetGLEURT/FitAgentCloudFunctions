@@ -7,6 +7,12 @@ const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
 const firebase = require('firebase');
 
+
+const keyApiGoogle = require("./keyApiGoogle.json");
+var googleMapsClient = require('@google/maps').createClient({
+    key: keyApiGoogle,
+    Promise: Promise,
+  });
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
 const firebaseConfig = require("./firebaseconfig.json");
@@ -90,6 +96,31 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
         response.send("ERREUR 1002", err);
         return 0;
     });
+});
+
+
+exports.test = functions.https.onRequest(async (request, response) => {
+
+    var gpsHomePosition = [-33.8665433,151.1956316];
+    
+    var req = {
+        location: gpsHomePosition,
+        radius: 10000,
+        type: 'train_station'
+    };
+    try{
+        let res = await googleMapsClient.placesNearby(req).asPromise();
+        return res.then(data => {
+            console.log("reponse : ")
+            console.log(JSON.stringify(data, null, 4))
+            return response.send(data);
+        })
+        .catch(err => {console.log(err)})
+        
+        //return 
+    } catch (err) {
+        throw(JSON.stringify(err, null, 4));
+    }
 });
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
@@ -245,12 +276,17 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         agent.add(`WOOOW BUG 1000`);
         return 0;
     });
-
-
    }
 
+   function guessedAddress()
+   {
+       
 
-
+        var guessedAddress = "9 rue des inventions";
+        agent.context.set({ name: 'New Activity - address', lifespan: 2, parameters: {guessedAddress : guessedAddress} });
+        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress}, cela vous convient-il ?`);
+   }
+   
 
 
    // See https://github.com/dialogflow/fulfillment-actions-library-nodejs
@@ -260,6 +296,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
   let intentMap = new Map();
   intentMap.set('add User', addUserInfosToFirebase);
   intentMap.set('New Activity - yes', addUserActivityToFirebase);
+  intentMap.set('New Activity - more', guessedAddress);
 
   
   // intentMap.set('your intent name here', googleAssistantHandler);
