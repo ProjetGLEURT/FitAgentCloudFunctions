@@ -20,9 +20,12 @@ const functions = require('firebase-functions');
 
 const firebaseConfig = require("./firebaseconfig.json");
 
+
+
 firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
+
 
 
 const {
@@ -147,24 +150,42 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
         });
 });
 
+exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
+    console.log("waaw")
+    console.log(request.headers)
+    console.log(request.header("Authorization"));
+    console.log(request.header("X-Endpoint-API-UserInfo"));
+    let email = request.header("X-Endpoint-API-UserInfo").email
 
-async function proposerLieuSport(address)
+    try
+    {
+        var promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(email).once("value");
+        var idUser = Object.keys(promesseRequeteUser.val())[0];
+        const myUserInfosRef = promesseRequeteUser.val()[idUser].infos;
+        //const myUserActsRef = myUserRef.child('activities');
+        response.send(myUserInfosRef);
+        return 0;
+    }
+    catch(err) {
+        throw new Error("Error acces infos user - api : " + err);
+    }
+});
+
+
+async function searchLocationSport(address, sport)
 {
-
-    //var gpsHomePosition =  {lat:42.6083213, lng:2.9430227};
-    
     var reqGeoLoc = {
         address: address,
         language: "french"
     };
     try{
         let resGeoLoc = await googleMapsClient.geocode(reqGeoLoc).asPromise();
-        let reponse = "geocode";
+        let response = {};
         let gpsHomePosition = resGeoLoc.json.results[0].geometry.location
-        reponse += JSON.stringify(gpsHomePosition);
+        response['myGpsLocation'] = gpsHomePosition;
         let req = {
             location: gpsHomePosition,
-            keyword: 'taekwondo',
+            keyword: sport,
             rankby: "distance"
         };
         let res = await googleMapsClient.placesNearby(req).asPromise();
@@ -173,15 +194,13 @@ async function proposerLieuSport(address)
             origins:req.location,
             destinations:firstResult.geometry.location
         }
-        reponse += "<br>origtodest : " + JSON.stringify(origToDest);
+        response['sportGpsDest'] = firstResult.geometry.location;
         let resDist = await googleMapsClient.distanceMatrix(origToDest).asPromise();
-        reponse += "<br>" + firstResult.name + ' dans les environs de ' + firstResult.vicinity ;
-        reponse += "<br>" + JSON.stringify(firstResult.geometry.location);
-        reponse += "<br>" + (resDist.json.rows[0].elements[0].distance.value/1000).toFixed(2) + " km";
-        reponse += "<br>" + Math.round(resDist.json.rows[0].elements[0].duration.value/60) + " minutes";
-        console.log("geo :")
-        console.log(reponse)
-        return response.send(reponse);
+        response['nameLocationSport'] = firstResult.name;
+        response['address'] = firstResult.vicinity ;
+        response['distanceInKm'] = (resDist.json.rows[0].elements[0].distance.value/1000).toFixed(2);
+        response['timeInMinutes'] = Math.round(resDist.json.rows[0].elements[0].duration.value/60);
+        return response;
     } catch (err) {
         console.log(err)
         throw(JSON.stringify(err, null, 4));
@@ -206,6 +225,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             infos:
                 {
                     name: name,
+                    email: "dvdmcn66@gmail.com",
                     preference: "afternoon",
                     adress: "9 rue Jean Luc Mélenchon",
                 }
@@ -239,8 +259,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
-        let address = proposerLieuSport(myUserRef.address);
-
         const myUserActsRef = myUserRef.child('activities');
 
         console.log("Contexts of Dialogflow : ")
@@ -255,7 +273,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
         let confirmationDemandee = false;
         try {
-            console.log("Contexte True : ")
+            console.log("Context True : ")
             console.log(agent.contexts[numContexteValidationDemandee])
             confirmationDemandee = agent.contexts[numContexteValidationDemandee].parameters.confirmationDemandee;
         }
@@ -269,21 +287,35 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             confirmationDemandee = true*/
         let nameSport = contextParameters.sport
 
-        let homeTimeAmount = -1
-        let workTimeAmount = -1
-        if (contextParameters.homeTime !== undefined && contextParameters.homeTime.amount !== undefined)
-            homeTimeAmount = contextParameters.homeTime.amount;
-        if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined)
-            workTimeAmount = contextParameters.workTime.amount;
 
+
+        let homeTimeAmount
+        let workTimeAmount
         let addressToPush = contextParameters.address
         if (addressToPush === undefined) {
-            addressToPush = "9 rue des inventions"
+            if (contextParameters.homeTime !== undefined && contextParameters.homeTime.amount !== undefined){
+                homeTimeAmount = contextParameters.homeTime.amount;
+            }
+            if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined){
+                workTimeAmount = contextParameters.workTime.amount;
+            }
+            else{
+                console.log("SEARCHING SPORT LOCATION")
+                let dataUser = await myUserRef.once("value")
+                let addressUser = dataUser.val().infos.address
+                var resultSearchSport = await searchLocationSport(addressUser, nameSport);
+                console.log(resultSearchSport)
+                addressToPush = resultSearchSport
+                workTimeAmount = resultSearchSport.timeInMinutes
+                homeTimeAmount = 1
+            }
         }
+
         var donnee = {
             name: nameSport,
             placeType: contextParameters.placeType,
             address: addressToPush,
+            kmToSport: resultSearchSport.distanceInKm,
             homeTime: homeTimeAmount,
             workTime: workTimeAmount,
             frequence: contextParameters.frequence,
@@ -319,10 +351,22 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         });*/
     }
 
-   function guessedAddress () {
-        var guessedAddress = "9 rue des inventions";
+   async function guessedAddress (agent) {
+        console.log("SEARCHING SPORT LOCATION")
+        let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
+        let idUser = Object.keys(promesseRequeteUser.val())[0];
+        const myUserRef = usersRef.child(idUser);
+        let dataUser = await myUserRef.once("value")
+        let addressUser = dataUser.val().infos.address
+        let numContexte = getNumContext(agent, 'newactivity-followup');
+        let contextParameters = agent.contexts[numContexte].parameters;
+        let nameSport = contextParameters.sport
+        let resultSearchSport = await searchLocationSport(addressUser, nameSport);
+        console.log(resultSearchSport)
+        var guessedAddress = resultSearchSport.address;
+        var distanceInKm = resultSearchSport.distanceInKm;
         agent.context.set({name: 'new activity - address', lifespan: 2, parameters: {guessedAddress: guessedAddress}});
-        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress}, cela vous convient-il ?`);
+        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${resultSearchSport.distanceInKm} km de chez vous, cela vous convient-il ?`);
     }
 
 
