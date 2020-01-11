@@ -19,11 +19,13 @@ const googleMapsClient = require('@google/maps').createClient({
     key: keyApiGoogle,
     Promise: Promise,
 });
-const {addNewEventToGoogleCalendar, setEventData} = require('./addNewEventToCalendar');
+
 const {
     getNumContext,
     computeSeanceDuration,
     } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
+
+const {addNewEventToGoogleCalendar, setEventData} = require('./addNewEventToCalendar');
 
 exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activities/{activityId}/events/{eventId}')
     .onCreate(async (snapshot, context) => {
