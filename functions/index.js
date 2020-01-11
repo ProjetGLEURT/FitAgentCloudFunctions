@@ -7,6 +7,8 @@ const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
 const firebase = require('firebase');
 
+const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
+
 const keyApiGoogle = require("./keyApiGoogle.json");
 const googleMapsClient = require('@google/maps').createClient({
     key: keyApiGoogle,
@@ -162,7 +164,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     console.log("TEST")
     var client = new HttpClient();
     client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?'+
-    `key=${keyApiGoogle}`+
+    `key=${keyApiGoogle}&`+
     'input=bordeaux&'+
     'inputtype=textquery', function (response) {
         console.log("Réponse de la recherche")
