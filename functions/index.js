@@ -7,8 +7,10 @@ const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
 const firebase = require('firebase');
 
+
 const keyApiGoogle = require("./keyApiGoogle.json");
- var googleMapsClient = require('@google/maps').createClient({
+ var googleMaps= require('@google/maps')
+ const googleMapsClient = googleMaps.createClient({
      key: keyApiGoogle,
      Promise: Promise,
 });
@@ -93,17 +95,37 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
 
 exports.test = functions.https.onRequest(async (request, response) => {
 
-    var gpsHomePosition = [-33.8665433,151.1956316];
+    //var gpsHomePosition =  {lat:42.6083213, lng:2.9430227};
     
-    var req = {
-        location: gpsHomePosition,
-        radius: 10000,
-        type: 'train_station'
+    var reqGeoLoc = {
+        address: "41 rue pasteur, nancy, france",
+        language: "french"
     };
     try{
+        let resGeoLoc = await googleMapsClient.geocode(reqGeoLoc).asPromise();
+        let reponse = "geocode";
+        let gpsHomePosition = resGeoLoc.json.results[0].geometry.location
+        reponse += JSON.stringify(gpsHomePosition);
+        let req = {
+            location: gpsHomePosition,
+            keyword: 'taekwondo',
+            rankby: "distance"
+        };
         let res = await googleMapsClient.placesNearby(req).asPromise();
-        console.log(res);
-        return response.send(res);
+        let firstResult = res.json.results[0]
+        let origToDest = {
+            origins:req.location,
+            destinations:firstResult.geometry.location
+        }
+        reponse += "<br>origtodest : " + JSON.stringify(origToDest);
+        let resDist = await googleMapsClient.distanceMatrix(origToDest).asPromise();
+        reponse += "<br>" + firstResult.name + ' dans les environs de ' + firstResult.vicinity ;
+        reponse += "<br>" + JSON.stringify(firstResult.geometry.location);
+        reponse += "<br>" + (resDist.json.rows[0].elements[0].distance.value/1000).toFixed(2) + " km";
+        reponse += "<br>" + Math.round(resDist.json.rows[0].elements[0].duration.value/60) + " minutes";
+        console.log("geo :")
+        console.log(reponse)
+        return response.send(reponse);
     } catch (err) {
         console.log(err)
         throw(JSON.stringify(err, null, 4));
