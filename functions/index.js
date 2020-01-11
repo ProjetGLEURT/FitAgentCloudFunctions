@@ -12,6 +12,7 @@ const googleMapsClient = require('@google/maps').createClient({
     key: keyApiGoogle,
     Promise: Promise,
   });
+
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
 const firebaseConfig = require("./firebaseconfig.json");
@@ -102,15 +103,10 @@ exports.test = functions.https.onRequest(async (request, response) => {
     };
     try{
         let res = await googleMapsClient.placesNearby(req).asPromise();
-        return res.then(data => {
-            console.log("reponse : ")
-            console.log(JSON.stringify(data, null, 4))
-            return response.send(data);
-        })
-        .catch(err => {console.log(err)})
-        
-        //return 
+        console.log(res);
+        return response.send(res);
     } catch (err) {
+        console.log(err)
         throw(JSON.stringify(err, null, 4));
     }
 });
