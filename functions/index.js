@@ -1,6 +1,11 @@
-// See https://github.com/dialogflow/dialogflow-fulfillment-nodejs
-// for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
+
+const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
+const keyApiGoogle = require("./keyApiGoogle.json");
+const googleMapsClient = require('@google/maps').createClient({
+    key: keyApiGoogle,
+    Promise: Promise,
+});
 
 const {WebhookClient} = require('dialogflow-fulfillment');
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
@@ -13,14 +18,6 @@ const firebaseConfig = require("./firebaseconfig.json");
 firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
-
-const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-
-const keyApiGoogle = require("./keyApiGoogle.json");
-const googleMapsClient = require('@google/maps').createClient({
-    key: keyApiGoogle,
-    Promise: Promise,
-});
 
 const {
     getNumContext,
@@ -39,7 +36,11 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
         const event = snapshot.val();
         const eventRef = snapshot.ref;
         const userId = context.params.userId;
-        const eventData = setEventData(event);
+        const activityId = context.params.activityId;
+
+        let activity = await getActivityInfosFromFirebase(userId, activityId);
+
+        const eventData = setEventData(event, activity);
 
         let token = await getStoredTokenFromFirebase(userId);
 
@@ -67,6 +68,15 @@ async function addGoogleEventIdToFirebase(eventId, eventRef) {
         await eventRef.update(data);
     } catch (err) {
         throw new Error("Can't get user's access token: " + err);
+    }
+}
+
+async function getActivityInfosFromFirebase(userId, activityId) {
+    try {
+        let activitySnapshot = await usersRef.child(userId + '/activities/' + activityId).once("value");
+        return activitySnapshot.val()
+    } catch (err) {
+        throw new Error("Problem getting activity " + activityId + " from user " + userId + ": " + err);
     }
 }
 
