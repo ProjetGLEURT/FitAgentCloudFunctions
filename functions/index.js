@@ -145,6 +145,30 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
 
+    console.log("TTESTT")
+    var HttpClient = function () {
+        this.get = function (aUrl, aCallback) {
+            var anHttpRequest = new XMLHttpRequest();
+            anHttpRequest.onreadystatechange = function () {
+                if (anHttpRequest.readyState === 4 && anHttpRequest.status === 200)
+                    aCallback(anHttpRequest.responseText);
+            }
+
+            anHttpRequest.open("GET", aUrl, true);
+            anHttpRequest.send(null);
+        }
+    }
+
+    console.log("TEST")
+    var client = new HttpClient();
+    client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?'+
+    `key=${keyApiGoogle}`+
+    'input=bordeaux&'+
+    'inputtype=textquery', function (response) {
+        console.log("Réponse de la recherche")
+        console.log(response)
+    });
+
     return promesseRequeteUser.then(data => {
 
         var idUser = Object.keys(data.val())[0];
