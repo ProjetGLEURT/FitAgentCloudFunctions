@@ -128,14 +128,14 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
 });
 
 
-exports.test = functions.https.onRequest(async (request, response) => {
+async function proposerLieuSport(address)
+{
 
-    var gpsHomePosition = [-33.8665433, 151.1956316];
-
-    var req = {
-        location: gpsHomePosition,
-        radius: 10000,
-        type: 'train_station'
+    //var gpsHomePosition =  {lat:42.6083213, lng:2.9430227};
+    
+    var reqGeoLoc = {
+        address: address,
+        language: "french"
     };
     try {
         let res = await googleMapsClient.placesNearby(req).asPromise();
@@ -145,7 +145,7 @@ exports.test = functions.https.onRequest(async (request, response) => {
         console.log(err)
         throw(JSON.stringify(err, null, 4));
     }
-});
+}
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
     const agent = new WebhookClient({request, response});
@@ -166,7 +166,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
                 {
                     name: name,
                     preference: "afternoon",
-                    adresse: "9 rue Jean Luc Mélenchon",
+                    adress: "9 rue Jean Luc Mélenchon",
                 }
         }
         usersRef.push(data)
@@ -198,6 +198,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
+        let address = proposerLieuSport(myUserRef.address);
+
         const myUserActsRef = myUserRef.child('activities');
 
         console.log("Contexts of Dialogflow : ")
@@ -247,6 +249,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             duration: seanceDurationInMinute,
         }
 
+        try{
         let data = await myUserActsRef.orderByChild('name').equalTo(nameSport).once("value");
 
         console.log("data", data.val())
@@ -267,12 +270,11 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
         }
         return 0;
-        /*
-        .catch(err => {
-            console.log(err);
+        }
+        catch(err){
             agent.add(`ERROR votre activité n'a pas pu être ajouté. Désoler du dérangement`);
-            throw new Error("Activity can't be add to the database ",err)
-        });*/
+            throw new Error("Activity can't be add to the database ", err)
+        }
     }
 
     function guessedAddress() {
