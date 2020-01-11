@@ -2,18 +2,15 @@
 // for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
 
-const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
-const {Card, Suggestion} = require('dialogflow-fulfillment');
-const firebase = require('firebase');
-
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
+const functions = require('firebase-functions');
+
+const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
 firebase.initializeApp(firebaseConfig);
-
-
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
 
@@ -22,20 +19,38 @@ const {addNewEventToGoogleCalendar, setEventData} = require('./addNewEventToCale
 exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activities/{activityId}/events/{eventId}')
     .onCreate(async (snapshot, context) => {
         const event = snapshot.val();
+        const eventRef = snapshot.ref;
         const userId = context.params.userId;
         const eventData = setEventData(event);
 
-        console.log("Hello there lads");
+        let tokenSnapshot;
         try {
-            let tokenSnapshot = await usersRef.child(userId + '/infos/token').once("value");
-            let token = tokenSnapshot.val();
-            console.log(token);
-            return addNewEventToGoogleCalendar(eventData, token);
+            tokenSnapshot = await usersRef.child(userId + '/infos/token').once("value");
         } catch (err) {
-            console.log("Error getting user's access token: ", err);
+            console.error("Error getting user's access token: " + err);
         }
-        return 0;
+        let token = tokenSnapshot.val();
+
+        let eventRessource;
+        try {
+            eventRessource = await addNewEventToGoogleCalendar(eventData, token);
+        } catch (err) {
+            console.error("Error adding google event id to firebase: " + err);
+        }
+        await addGoogleEventIdToFirebase(eventRessource.data.id, eventRef);
     });
+
+async function addGoogleEventIdToFirebase(eventId, eventRef) {
+    const data = {
+        googleEventId: eventId
+    };
+
+    try {
+        await eventRef.update(data);
+    } catch (err) {
+        console.error("Error getting user's access token: " + err);
+    }
+}
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response) => {
     var id = request.query.id;
