@@ -1,23 +1,13 @@
+// See https://github.com/dialogflow/dialogflow-fulfillment-nodejs
+// for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
 
-const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-
-
 const {WebhookClient} = require('dialogflow-fulfillment');
-const {Card, Suggestion} = require('dialogflow-fulfillment');
-const firebase = require('firebase');
-
-
-const keyApiGoogle = require("./keyApiGoogle.json");
- var googleMaps= require('@google/maps')
- const googleMapsClient = googleMaps.createClient({
-     key: keyApiGoogle,
-     Promise: Promise,
-});
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
 const functions = require('firebase-functions');
 
+const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
 
@@ -26,6 +16,11 @@ firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
 
+const keyApiGoogle = require("./keyApiGoogle.json");
+const googleMapsClient = require('@google/maps').createClient({
+    key: keyApiGoogle,
+    Promise: Promise,
+});
 
 
 const {
@@ -48,11 +43,7 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
         const event = snapshot.val();
         const eventRef = snapshot.ref;
         const userId = context.params.userId;
-        const activityId = context.params.activityId;
-
-        let activity = await getActivityInfosFromFirebase(userId, activityId);
-
-        const eventData = setEventData(event, activity);
+        const eventData = setEventData(event);
 
         let token = await getStoredTokenFromFirebase(userId);
 
@@ -80,15 +71,6 @@ async function addGoogleEventIdToFirebase(eventId, eventRef) {
         await eventRef.update(data);
     } catch (err) {
         throw new Error("Can't get user's access token: " + err);
-    }
-}
-
-async function getActivityInfosFromFirebase(userId, activityId) {
-    try {
-        let activitySnapshot = await usersRef.child(userId + '/activities/' + activityId).once("value");
-        return activitySnapshot.val()
-    } catch (err) {
-        throw new Error("Problem getting activity " + activityId + " from user " + userId + ": " + err);
     }
 }
 
@@ -126,9 +108,8 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response)
         return 0;
     })
         .catch(err => {
-            console.log(err);
-            response.send("ERREUR 1003", err);
-            return 0;
+            response.send("Can not remove the activity : ", err);
+            throw new Error("Can not remove the activity : ", err)
         });
 });
 
@@ -144,9 +125,8 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
         return 0;
     })
         .catch(err => {
-            console.log(err);
-            response.send("ERREUR 1002", err);
-            return 0;
+            response.send("Can not remove the activity : ", err);
+            throw new Error("Issue with User references",err)
         });
 });
 
@@ -243,19 +223,19 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
 
 
-        let client = new HttpClient();
-        try {
-            client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?' +
-                `key=${keyApiGoogle}&` +
-                'input=bordeaux&' +
-                'inputtype=textquery', response => {
-                    console.log("Response of the request")
-                    console.log(response)
-                });
-        }
-        catch (err) {
-            throw new Error(`Request failed `, error)
-        }
+        // let client = new HttpClient();
+        // try {
+        //     client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?' +
+        //         `key=${keyApiGoogle}&` +
+        //         'input=bordeaux&' +
+        //         'inputtype=textquery', response => {
+        //             console.log("Response of the request")
+        //             console.log(response)
+        //         });
+        // }
+        // catch (err) {
+        //     throw new Error(`Request failed `, error)
+        // }
 
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
@@ -268,7 +248,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         let contextParameters = agent.contexts[numContexte].parameters;
         let numContexteValidationDemandee = getNumContext(agent, 'new activity - yes') //context used to ask validation if activity already exist in the database
 
-        // computeSeanceDuration 
         let seanceDurationInMinute = computeSeanceDuration(contextParameters);
 
         let confirmationDemandee = false;
@@ -323,6 +302,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             duration: seanceDurationInMinute,
         }
 
+        try{
         let data = await myUserActsRef.orderByChild('name').equalTo(nameSport).once("value");
 
         console.log("data", data.val())
@@ -343,12 +323,11 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
         }
         return 0;
-        /*
-        .catch(err => {
-            console.log(err);
+        }
+        catch(err){
             agent.add(`ERROR votre activité n'a pas pu être ajouté. Désoler du dérangement`);
-            throw new Error("Activity can't be add to the database ",err)
-        });*/
+            throw new Error("Activity can't be add to the database ", err)
+        }
     }
 
    async function guessedAddress (agent) {
