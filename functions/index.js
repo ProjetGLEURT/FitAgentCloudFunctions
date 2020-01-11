@@ -1,11 +1,7 @@
 'use strict';
 
 const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-const keyApiGoogle = require("./keyApiGoogle.json");
-const googleMapsClient = require('@google/maps').createClient({
-    key: keyApiGoogle,
-    Promise: Promise,
-});
+
 
 const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
@@ -152,12 +148,13 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
 });
 
 
-exports.test = functions.https.onRequest(async (request, response) => {
+async function proposerLieuSport(address)
+{
 
     //var gpsHomePosition =  {lat:42.6083213, lng:2.9430227};
     
     var reqGeoLoc = {
-        address: "41 rue pasteur, nancy, france",
+        address: address,
         language: "french"
     };
     try{
@@ -189,7 +186,7 @@ exports.test = functions.https.onRequest(async (request, response) => {
         console.log(err)
         throw(JSON.stringify(err, null, 4));
     }
-});
+}
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
     const agent = new WebhookClient({request, response});
@@ -210,7 +207,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
                 {
                     name: name,
                     preference: "afternoon",
-                    adresse: "9 rue Jean Luc Mélenchon",
+                    adress: "9 rue Jean Luc Mélenchon",
                 }
         }
         usersRef.push(data)
@@ -242,6 +239,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
+        let address = proposerLieuSport(myUserRef.address);
+
         const myUserActsRef = myUserRef.child('activities');
 
         console.log("Contexts of Dialogflow : ")
@@ -251,11 +250,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         let contextParameters = agent.contexts[numContexte].parameters;
         let numContexteValidationDemandee = getNumContext(agent, 'new activity - yes') //context used to ask validation if activity already exist in the database
 
-<<<<<<< HEAD
         // computeSeanceDuration 
-=======
-        // computeSeanceDuration
->>>>>>> a1269375c5fb8801ed2f66050ab82e17c74451df
         let seanceDurationInMinute = computeSeanceDuration(contextParameters);
 
         let confirmationDemandee = false;
