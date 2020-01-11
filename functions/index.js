@@ -105,9 +105,8 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response)
         return 0;
     })
         .catch(err => {
-            console.log(err);
-            response.send("ERREUR 1003", err);
-            return 0;
+            response.send("Can not remove the activity", err);
+            throw new Error("Can not remove the activity", err)
         });
 });
 
@@ -123,9 +122,8 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
         return 0;
     })
         .catch(err => {
-            console.log(err);
-            response.send("ERREUR 1002", err);
-            return 0;
+            response.send("Issue with User references", err);
+            throw new Error("Issue with User references",err)
         });
 });
 
