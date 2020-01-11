@@ -6,33 +6,43 @@ exports.addNewEventToGoogleCalendar = async function (eventData, token) {
     return await insertEvent(eventData, auth);
 };
 
-exports.setEventData = function (event) {
-    try {
-        return {
-            summary: 'Séance de : ' + event.activity || 'Sport Indéfini',
-            location: event.location || 'Endroit où on fait du sport',
-            description: 'Créé avec amour par FitAgent.',
-            start: {
-                dateTime: event.dateTimeStart || '2019-01-10T09:00:00-09:00',
-                timeZone: 'Europe/Paris'
-            },
-            end: {
-                dateTime: event.dateTimeEnd || '2019-01-10T09:00:00-10:00',
-                timeZone: 'Europe/Paris'
-            },
-            recurrence: ['RRULE:FREQ=DAILY;COUNT=1'],
-            attendees: [],
-            reminders: {
-                useDefault: false,
-                overrides: [
-                    {method: 'popup', minutes: 10}
-                ]
-            }
+exports.setEventData = function (event, activity) {
+    let activityName = activity.name || "sport";
+    let activityLocation = activity.location || 'Endroit où on fait du ' + activityName;
+
+    let dateTimeStart = event.dateTimeStart || '2019-01-10T09:00:00-09:00';
+    let dateTimeEnd = event.dateTimeEnd || '2019-01-10T09:00:00-10:00';
+    if (!event.dateTimeStart) console.warn("No start datetime provided.");
+    if (!event.dateTimeEnd) console.warn("No end datetime provided.");
+    checkDateTimesCoherence(dateTimeStart, dateTimeEnd);
+
+    return {
+        summary: 'Séance de : ' + activityName,
+        location: activityLocation,
+        description: 'Créé avec amour par FitAgent.',
+        start: {
+            dateTime: dateTimeStart,
+            timeZone: 'Europe/Paris'
+        },
+        end: {
+            dateTime: dateTimeEnd,
+            timeZone: 'Europe/Paris'
+        },
+        recurrence: ['RRULE:FREQ=DAILY;COUNT=1'],
+        attendees: [],
+        reminders: {
+            useDefault: false,
+            overrides: [
+                {method: 'popup', minutes: 10}
+            ]
         }
-    } catch (err) {
-        throw(err);
     }
 };
+
+function checkDateTimesCoherence(dateTimeStart, dateTimeEnd) {
+    if (Date.parse(dateTimeStart) >= Date.parse(dateTimeEnd)) throw new Error("Incoherent dates, end date is older than" +
+        " start date");
+}
 
 async function insertEvent(event, auth) {
     const calendar = google.calendar({version: 'v3', auth});
