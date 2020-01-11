@@ -107,3 +107,4 @@ dist
 functions/service-account.json
 functions/firebaseconfig.json
 functions/credentials.json
+functions/keyApiGoogle.json

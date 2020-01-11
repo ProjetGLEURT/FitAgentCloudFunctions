@@ -7,11 +7,11 @@ const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
 const firebase = require('firebase');
 
-// const keyApiGoogle = require("./keyApiGoogle.json");
-// var googleMapsClient = require('@google/maps').createClient({
-//     key: keyApiGoogle,
-//     Promise: Promise,
-//   });
+const keyApiGoogle = require("./keyApiGoogle.json");
+const googleMapsClient = require('@google/maps').createClient({
+    key: keyApiGoogle,
+    Promise: Promise,
+  });
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
 const firebaseConfig = require("./firebaseconfig.json");
@@ -25,8 +25,8 @@ const usersRef = dbRef.child('users');
 const {addNewEventToGoogleCalendar, setEventData} = require('./addNewEventToCalendar');
 const { 
     getNumContext,
-    computeDuration,
-    } = require("./dialogflowFirebaseFulfillment")
+    computeSeanceDuration,
+    } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
 
 exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activities/{activityId}/events/{eventId}')
     .onCreate(async (snapshot, context) => {
@@ -161,47 +161,24 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         console.log(agent.contexts)
 
         var numContexte = getNumContext(agent, 'newactivity-followup');
-         // var numContexte = 0
-        // for(var i = 0; i < agent.contexts.length;i++)
-        // {
-        //     console.log(agent.contexts[i]);
-        //     if(agent.contexts[i].parameters.name === 'newactivity-followup')
-        //     {
-        //         numContexte = i;
-        //         break;
-        //     }
-        // }
+        var contextParameters = agent.contexts[numContexte].parameters;
         console.log("numContexte : ")
         console.log(numContexte)
 
-        var numContexteValidationDemandee = getNumContext(agent, 'New Activity - yes') //contexte auquel en théorie, la variable sera rajoutée
-        // for(var j = 0; j < agent.contexts.length;j++)
-        // {
-        //     if(agent.contexts[j].name === 'new activity - yes')
-        //     {
-        //         numContexteValidationDemandee = j;
-        //         break;
-        //     }
-        // }
+        var numContexteValidationDemandee = getNumContext(agent, 'new activity - yes') //contexte auquel en théorie, la variable sera rajoutée
+  
         console.log("numContexteValidationDemandee : ")
         console.log(numContexteValidationDemandee)
 
 
-        //calcul durée séance
         // computeSeanceDuration 
-        var durationUnit = agent.contexts[0].parameters.duration.unit;
-        var durationAmount = agent.contexts[0].parameters.duration.amount;
-        var durationInMinute = computeDuration(durationUnit, durationAmount);
+        var seanceDurationInMinute = computeSeanceDuration(contextParameters);
 
         var confirmationDemandee = false;
         try{
-            console.log("All contexts : ")
-            console.log(agent.contexts)
-            console.log("numContexteValidationDemandee : ")
-            console.log(numContexteValidationDemandee)
             console.log("Contexte True : ")
-            console.log(agent.contexts[agent.contexts.length - 2])
-            confirmationDemandee = agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee;
+            console.log(agent.contexts[numContexteValidationDemandee])
+            confirmationDemandee = agent.contexts[numContexteValidationDemandee].parameters.confirmationDemandee;
         }
         catch(error){
             console.log("ERROR 1005 : ")
@@ -210,28 +187,28 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         }
         /*if(agent.contexts[agent.contexts.length-2]!==undefined && agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee === true)
             confirmationDemandee = true*/
-        var nameSport = agent.contexts[0].parameters.sport
+        var nameSport = contextParameters.sport
 
         var homeTimeAmount = -1
         var workTimeAmount = -1
-        if(agent.contexts[0].parameters.homeTime !== undefined && agent.contexts[0].parameters.homeTime.amount !== undefined)
-            homeTimeAmount = agent.contexts[0].parameters.homeTime.amount;
-        if(agent.contexts[0].parameters.workTime !== undefined && agent.contexts[0].parameters.workTime.amount !== undefined)
-            workTimeAmount = agent.contexts[0].parameters.workTime.amount;
+        if (contextParameters.homeTime !== undefined && contextParameters.homeTime.amount !== undefined)
+            homeTimeAmount = contextParameters.homeTime.amount;
+        if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined)
+            workTimeAmount = contextParameters.workTime.amount;
         
-        let addressGiven = agent.contexts[0].parameters.address
-        if (addressGiven === undefined){
-            addressGiven = "9 rue des inventions"
+        let addressToPush = contextParameters.address
+        if (addressToPush === undefined){
+            addressToPush = "9 rue des inventions"
         }
         var donnee = {
             name: nameSport,
-            placeType: agent.contexts[0].parameters.placeType,
-            address: addressGiven,
+            placeType: contextParameters.placeType,
+            address: addressToPush,
             homeTime:  homeTimeAmount,
             workTime:  workTimeAmount,
-            frequence:agent.contexts[0].parameters.frequence,
-            nbSeance:agent.contexts[0].parameters.nbSeance,
-            duration:durationInMinute,
+            frequence: contextParameters.frequence,
+            nbSeance: contextParameters.nbSeance,
+            duration: seanceDurationInMinute,
         }
 
         var promesseRequeteSport = Promise.resolve(myUserActsRef.orderByChild('name').equalTo(nameSport).once("value"));
@@ -248,15 +225,14 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
                 myUserActsRef.push(donnee)
                 //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-                agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${durationInMinute} minutes`);
+                agent.add(`OK COOOL : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${seanceDurationInMinute} minutes`);
 
                 agent.context.set({ name: 'New Activity', lifespan: 2, parameters: { }});
             }
             else{
 
                 donnee.confirmationDemandee = true;
-
-                agent.context.set({ name: 'New Activity - yes', lifespan: 2, parameters: donnee });
+                agent.context.set({ name: 'new activity - yes', lifespan: 2, parameters: donnee });
                 agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
             }
             return 0;
@@ -279,7 +255,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
        
 
         var guessedAddress = "9 rue des inventions";
-        agent.context.set({ name: 'New Activity - address', lifespan: 2, parameters: {guessedAddress : guessedAddress} });
+        agent.context.set({ name: 'new activity - address', lifespan: 2, parameters: {guessedAddress : guessedAddress} });
         agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress}, cela vous convient-il ?`);
    }
    

@@ -1,8 +1,6 @@
-
-
 exports.getNumContext = function  (agent,name) {
-     var numContexte = 0
-    for(var i = 0; i < agent.contexts.length;i++)
+    let numContexte = 0
+    for(let i = 0; i < agent.contexts.length;i++)
     {
         console.log(agent.contexts[i]);
         if(agent.contexts[i].name === name)
@@ -14,7 +12,9 @@ exports.getNumContext = function  (agent,name) {
     return numContexte
 }
 
-exports.computeDuration = function (durationUnit, durationAmount) {
+exports.computeSeanceDuration = function (contextParameters) {
+    let durationUnit = contextParameters.duration.unit;
+    let durationAmount = contextParameters.duration.amount;
     if (durationUnit === "heure")
         return (durationAmount * 60);
     if (durationUnit === "seconde")
