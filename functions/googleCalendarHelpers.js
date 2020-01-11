@@ -1,14 +1,8 @@
-const fs = require('fs');
-const { promisify } = require('util');
-const readFileAsync = promisify(fs.readFile);
-
 const {google} = require('googleapis');
-
-const CREDENTIALS_FILE = "credentials.json";
+const {authorize} = require('./authenticationHelpers.js');
 
 exports.addNewEventToGoogleCalendar = async function (eventData, token) {
-    let content = await readCredentials();
-    const auth = authorize(JSON.parse(content), token);
+    const auth = await authorize(token);
     return await insertEvent(eventData, auth);
 };
 
@@ -40,28 +34,28 @@ exports.setEventData = function (event) {
     }
 };
 
-async function readCredentials() {
-    try {
-        return await readFileAsync(CREDENTIALS_FILE);
-    } catch (err) {
-        throw new Error("Error reading credentials file: " + err);
-    }
-}
-
-function authorize(credentials, token) {
-    const {client_secret, client_id, redirect_uris} = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
-    oAuth2Client.setCredentials({access_token: token});
-    return oAuth2Client;
-}
-
 async function insertEvent(event, auth) {
     const calendar = google.calendar({version: 'v3', auth});
     try {
         let eventsRessource = await calendar.events.insert({calendarId: 'primary', resource: event});
-        console.log('Event created: %s', eventsRessource.data.htmlLink);
+        console.log('Google Calendar event created: %s', eventsRessource.data.htmlLink);
         return eventsRessource;
     } catch (err) {
-        throw new Error('There was an error contacting the Calendar service: ' + err)
+        throw new Error('There was an error while inserting event in google calendar: ' + err)
+    }
+}
+
+exports.deleteEventFromGoogleCalendar = async function (eventId, token) {
+    let auth = await authorize(token);
+    await deleteEvent(eventId, auth);
+};
+
+async function deleteEvent(eventId, auth) {
+    const calendar = google.calendar({version: 'v3', auth});
+    try {
+        await calendar.events.delete({calendarId: 'primary', eventId: eventId});
+        console.log('Event %s deleted from google calendar.', eventId);
+    } catch (err) {
+        throw new Error('There was an error while deleting an event in google calendar: ' + err)
     }
 }
