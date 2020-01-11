@@ -182,19 +182,19 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
 
 
-        let client = new HttpClient();
-        try {
-            client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?' +
-                `key=${keyApiGoogle}&` +
-                'input=bordeaux&' +
-                'inputtype=textquery', response => {
-                    console.log("Response of the request")
-                    console.log(response)
-                });
-        }
-        catch (err) {
-            throw new Error(`Request failed `, error)
-        }
+        // let client = new HttpClient();
+        // try {
+        //     client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?' +
+        //         `key=${keyApiGoogle}&` +
+        //         'input=bordeaux&' +
+        //         'inputtype=textquery', response => {
+        //             console.log("Response of the request")
+        //             console.log(response)
+        //         });
+        // }
+        // catch (err) {
+        //     throw new Error(`Request failed `, error)
+        // }
 
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
