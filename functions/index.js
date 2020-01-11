@@ -179,8 +179,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     }
 
 
-    function addUserActivityToFirebase(agent) {
-
    function addUserActivityToFirebase(agent) {
 
     let promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
