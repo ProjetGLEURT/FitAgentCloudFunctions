@@ -136,20 +136,44 @@ exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
     console.log("waaw")
     console.log(request.headers)
     console.log(request.header("Authorization"));
-    console.log(request.header("X-Endpoint-API-UserInfo"));
-    let email = request.header("X-Endpoint-API-UserInfo").email
+    let token = request.header("Authorization")
+    token = token.substr(7);
+    console.log(token)
+    let client = new HttpClient();
+    console.log("request sent")
+        // try {
+        //     console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+        //     `access_token=${token}`)
+        //     response = await client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+        //     `access_token=${token}`).asPromise()
+        //     console.log("Response of the request")
+        //     console.log(response)
+        //     console.log(response.id)
+                 
+        // }
+        //  catch (err) {
+        //      throw new Error(`Request failed `, err)
+        //  }
+    try {
+        console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+            `access_token=${token}`)
+        return client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+        `access_token=${token}`, async res => {
+            console.log("Response of the request");
+            console.log(res);
+            let resJon = JSON.parse(res)
+            console.log(resJon.id);
 
-    try
-    {
-        var promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(email).once("value");
-        var idUser = Object.keys(promesseRequeteUser.val())[0];
-        const myUserInfosRef = promesseRequeteUser.val()[idUser].infos;
-        //const myUserActsRef = myUserRef.child('activities');
-        response.send(myUserInfosRef);
-        return 0;
+
+            let promesseRequeteUser = await usersRef.orderByChild('infos/idGoogle').equalTo(resJon.id).once("value");
+            let idUser = Object.keys(promesseRequeteUser.val())[0];
+            const myUserInfosRef = promesseRequeteUser.val()[idUser].infos;
+            const myUserActsRef = myUserRef.child('activities');
+            return response.send('4');
+            });
     }
-    catch(err) {
-        throw new Error("Error acces infos user - api : " + err);
+    catch (err) {
+        throw new Error("Request failed" , err)
     }
 });
 
@@ -209,6 +233,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
                     name: name,
                     email: "dvdmcn66@gmail.com",
                     preference: "afternoon",
+                    idGoogle: 105810815818197160000,
                     adress: "9 rue Jean Luc Mélenchon",
                 }
         }
