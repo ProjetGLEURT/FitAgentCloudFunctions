@@ -12,7 +12,7 @@ Date.prototype.addDays = function(days) {
 function getIntervalPeriod(numNextWeek, period)
 {
     var today = new Date();
-    if(period == "week"){
+    if(period === "week"){
         var conversionNumWeeks = new Array(6, 0, 1, 2, 3, 4, 5)
         trueNumDay = conversionNumWeeks[today.getDay()]
         begin = new Date();
@@ -48,15 +48,18 @@ function filterFreeTimes(freeTimes, eventDuration)
     let i = 0
     millisecondEventDuration = eventDuration *60 *1000;
     while(i<freeTimes.length)
-        if((hasToBeFiltered(freeTimes[i], millisecondEventDuration)){
+    {
+        if(hasToBeFiltered(freeTimes[i], millisecondEventDuration)){
             freeTimes.splice(i, 1);
         }
         else{
             i++;
         }
+    }
+    return freeTimes;
 }
 
-async function findBetterFreeTime(freeTimesPossible, allEvent)
+function findBetterFreeTime(freeTimesPossible, allEvent)
 {
     //maxmin algorithm
     let indiceMaxMin, valueMax, valMin,  indiceMin;
@@ -89,39 +92,38 @@ async function loadAllEvents(usersRef)
     let promesseRequeteUser = await usersRef.orderByChild('infos/token').equalTo(token).once("value");
 
     let idUser = Object.keys(promesseRequeteUser.val())[0];
-    const myUserRef = usersRef.child(idUser);
-    const myUserActsRef = myUserRef.child('activity');
-    const allActivities = myUserActsRef.val();
+    const myUserRef =  await usersRef.child(idUser).once('value');
+    const allActivities = myUserRef['activity'];
     const allEvent = []
-    const keysActivity = Object.keys(allActivities.val())
+    const keysActivity = Object.keys(allActivities)
     for(var i=0;i<allActivities.length;i++)
     {
-        const eventsOfActivity = allActivities[keysActivity[i]].child('events').val();
+        const eventsOfActivity = allActivities[keysActivity[i]]['events'];
         let keysEventOfActivity = Object.keys(eventsOfActivity)
         for(var j=0;j<keysEventOfActivity.length;j++)
         {
-            const event = allActivities[keysEventOfActivity[j]].child('events').val();
-            allEvent.push({start:Date.parse(event.dateTimeStart), end:Date.parse((event.dateTimeEnd)})
+            const event = allActivities[keysEventOfActivity[j]]['events'];
+            allEvent.push({start:Date.parse(event.dateTimeStart), end:Date.parse(event.dateTimeEnd)})
         }
     }
     return allEvent;
 }
 
-async function addEvent(bestInterval, usersRef, token, eventDuration)
+async function addEvent(eventToAdd, refActivity, token)
 {
     let promesseRequeteUser = await usersRef.orderByChild('infos/token').equalTo(token).once("value");
-
-    let idUser = Object.keys(promesseRequeteUser.val())[0];
-    const myUserRef = usersRef.child(idUser);
-    const myUserActsRef = myUserRef.child('activity');
-    const myUserEventsRef = myUserActsRef.child('events');
-    let endTime = setTime(bestInterval.start.getTime() + eventDuration*60*1000)
-    eventToAdd = {start: bestInterval.start.toISOString(), end: endTime.toISOString()}
-    myUserEventsRef.push(eventToAdd);
-
+    refActivity.push(eventToAdd);
+    return eventToAdd;
 }
 
-async function addActivityEvents(idActivity, nbEvent, eventDuration, token, usersRef, period)
+async function prepareEvent(bestInterval, eventDuration)
+{
+    let endTime = setTime(bestInterval.start.getTime() + eventDuration*60*1000)
+    eventToAdd = {start: bestInterval.start.toISOString(), end: endTime.toISOString()}
+    return eventToAdd;
+}
+
+exports.addActivityEvents = async function (nbEvent, eventDuration, token, usersRef, period, refActivity)
 {
     let time = getIntervalPeriod(1, period)
     let freeTimes = await getFreeTimesFromGoogleCalendar(token, time.begin, time.end)
@@ -129,23 +131,26 @@ async function addActivityEvents(idActivity, nbEvent, eventDuration, token, user
     let j;
     let allEvent = loadAllEvents(usersRef);
     let eventAdded;
-    for(var i=0;i < nbEvent;i++)
+    let eventToAdd;
+    let indiceBetterFreeTime;
+    let listEventToAdd = [];
+    for(let i=0;i < nbEvent;i++)
     {
-        j=0
-        while(j<freeTimesPossible.length)
+        indiceBetterFreeTime = findBetterFreeTime(freeTimesPossible, allEvent)
+        eventToAdd = prepareEvent(freeTimesPossible[indiceBetterFreeTime], eventDuration) //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
+        allEvent.push(eventToAdd)
+        let start = freeTimesPossible[indiceBetterFreeTime].start
+        freeTimesPossible[indiceBetterFreeTime].start = start.setTime(start.getTime() + eventDuration*60*1000 );
+        if(hasToBeFiltered(freeTimesPossible[indiceBetterFreeTime], millisecondEventDuration))
         {
-            indiceBetterFreeTime = await findBetterFreeTime(freeTimesPossible, allEvent)
-            eventToAdd = await addEvent(freeTimesPossible[indiceBetterFreeTime], usersRef, token, eventDuration) //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
-            allEvent.push(eventToAdd)
-            let start = freeTimesPossible[j].start
-            freeTimesPossible[j].start = start.setTime(start.getTime() + eventDuration*60*1000 );
-            if(hasToBeFiltered(freeTimesPossible[j], millisecondEventDuration))
-            {
-                freeTimesPossible.splice(j, 1);
-            }
-            else{
-                j++
-            }
-        }
+            freeTimesPossible.splice(indiceBetterFreeTime, 1);
+        }    
+        listEventToAdd.push(eventToAdd);
     }
+    for(let i=0;i<listEventToAdd.length;i++){
+        PromiseArray.push(addEvent(eventToAdd, refActivity, token)); //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
+    }
+    await Promise.all(promiseArray)
+
+
 }
