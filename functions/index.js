@@ -170,13 +170,12 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
 
 exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
     try {
-        let token = getTokenFromUrl(request)
         let userEmail = await getEmailFromToken(getTokenFromUrl(request))
         let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
         try {
             if (promesseRequeteUser === undefined || promesseRequeteUser === null ) {
                 console.log("REQUEST USER = NUL")
-                initializeFirebaseUser(token, userEmail, response)
+                initializeFirebaseUser(getTokenFromUrl(request), userEmail, response)
             }
             else {
                 // await refreshTokenInFirebase(token, response, myUserRef) // deprecated
@@ -184,7 +183,7 @@ exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
                 const myUserRef = usersRef.child(idUser);
                 const myUserInfosRef = myUserRef.child('infos');
                 let data = {
-                    token: token,
+                    token: getTokenFromUrl(request),
                 }
                 myUserInfosRef.update(data)
                 response.send(await myUserRef.once("value"))
@@ -192,7 +191,7 @@ exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
         }
         catch (err) {
             console.log("Error  while searching user in the database")
-            initializeFirebaseUser(token, userEmail, response)
+            initializeFirebaseUser(getTokenFromUrl(request), userEmail, response)
             throw new Error("This should not happend, user not Find", err)
         }
     }
@@ -211,29 +210,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     // Uncomment and edit to make your own intent handler
     // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
     // below to get this function to be run when a Dialogflow intent is matched
-    function addUserInfosToFirebase(agent) {
-
-        name = agent.contexts[0].parameters.any;
-
-
-        var data = {
-            infos:
-                {
-                    name: name,
-                    email: "dvdmcn66@gmail.com",
-                    preference: "afternoon",
-                    idGoogle: 105810815818197160000,
-                    adress: "9 rue Jean Luc Mélenchon",
-                }
-        }
-        usersRef.push(data)
-        //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-        agent.add(`Ok vous êtes inscrit - enregistrez une nouvelle activité ?`);
-
-        agent.context.set({name: 'New Activity', lifespan: 2, parameters: {}});
-    }
-
-
+    
     async function addUserActivityToFirebase(agent) {
         let userEmail = await getEmailFromToken(getTokenFromContext(agent))
         console.log("Email get from context", userEmail)
@@ -394,7 +371,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     // Run the proper function handler based on the matched Dialogflow intent name
     let intentMap = new Map();
-    intentMap.set('add User', addUserInfosToFirebase);
     intentMap.set('New Activity - yes', addUserActivityToFirebase);
     intentMap.set('New Activity - more', guessedAddress);
     intentMap.set('New Activity', logAll);
