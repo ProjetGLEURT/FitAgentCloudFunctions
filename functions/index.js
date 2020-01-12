@@ -10,27 +10,22 @@ const functions = require('firebase-functions');
 const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
-const { authorize, getEmailFromToken, getTokenFromUrl } = require("./authenticationHelpers")
-
 firebase.initializeApp(firebaseConfig);
+
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
-
-
-
 const {
     getContextParameters,
     computeSeanceDuration,
     getTokenFromContext,
     searchLocationSport,
-    getEmailFromContext,
-    } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
+    } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase");
 
-const {
-    HttpClient,
-} = require("./dialogflowFirebaseFulfillment/httpRequest")
 
-const {addNewEventToGoogleCalendar, setEventData, deleteEventFromGoogleCalendar} = require('./googleCalendarHelpers');
+
+const { getEmailFromToken, getTokenFromUrl } = require("./authenticationHelpers");
+const {addNewEventToGoogleCalendar, setEventData, deleteEventFromGoogleCalendar, getFreeTimesFromGoogleCalendar}
+    = require('./googleCalendarHelpers');
 const {addActivityEvents} = require('./eventCalendarHelpers');
 
 /**
