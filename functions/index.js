@@ -243,7 +243,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 console.log("SEARCHING SPORT LOCATION");
                 let dataUser = await myUserRef.once("value");
                 let addressUser = dataUser.val().infos.address;
-                var resultSearchSport = await searchLocationSport(addressUser, nameSport);
+                let resultSearchSport = await searchLocationSport(addressUser, nameSport);
                 console.log(resultSearchSport);
                 addressToPush = resultSearchSport;
                 workTimeAmount = resultSearchSport.timeInMinutes;
