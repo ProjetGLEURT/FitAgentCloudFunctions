@@ -21,8 +21,9 @@ const usersRef = dbRef.child('users');
 const {
     getContextParameters,
     computeSeanceDuration,
-    getToken,
+    getTokenFromContext,
     searchLocationSport,
+    getEmailFromContext,
     } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
 
 const {
@@ -134,94 +135,84 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
         });
 });
 
-async function getnameFromToken(request, resTreatement) {
-    console.log("waaw")
-    console.log(request.headers)
-    console.log(request.header("Authorization"));
-    let token = request.header("Authorization")
-    token = token.substr(7);
-    console.log(token)
+
+
+
+async function getTokenInfosFromToken(token){
     let oAuth2Client = await authorize(token);
-    const tokenInfos = await oAuth2Client.getTokenInfo(token);
-    let client = new HttpClient();
-    console.log("request sent")
+    return await oAuth2Client.getTokenInfo(token);
+}
+
+exports.updateFirebaseInfo = functions.https.onRequest(async (request, response) =>{
+    
+    let userEmail = getEmailFromToken(getTokenFromUrl(request))
+    let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     try {
-        console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&` +
-            `access_token=${token}`)
-        return client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&` +
-            `access_token=${token}`, resTreatement);
+        if (promesseRequeteUser !== null) {
+            let idUser = Object.keys(promesseRequeteUser.val())[0];
+            const myUserRef = usersRef.child(idUser);
+            const myUserInfosRef = myUserRef.child('infos');
+            console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
+            let data = {
+                address: request.address,
+                // maxSportBeginTime: request.maxSportBeginTime,
+                // minSportBeginTime: request.minSportBeginTime,
+            }
+            myUserInfosRef.update(data)
+            response.send(myUserInfosRef.val())
+        }
+        else {
+            response.send("404 User not find")
+            throw new Error("404 User not find")
+        }
     }
     catch (err) {
-        throw new Error("Request failed", err)
+        throw new Error("User not find in the Database", err)
     }
+});
+
+let getTokenFromUrl = function (request) {
+    let token = request.header("Authorization")
+    token = token.substr(7);
+    console.log("Token Extracted from request : ", token)
+    return token
+}
+
+async function getEmailFromToken(token) {
+    const tokenInfos = await getTokenInfosFromToken(token)
+    console.log("TOKEN INFO", tokenInfos )
+    return tokenInfos.email
 }
 
 exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
     try {
-        let token = request.header("Authorization")
-        token = token.substr(7);
-        console.log(token)
-        let oAuth2Client = await authorize(token);
-        const tokenInfos = await oAuth2Client.getTokenInfo(token);
-        await getnameFromToken(request, async res => {
-            console.log("Response of the request");
-            console.log(JSON.stringify(res, null, 4));
-            let resJon = JSON.parse(res)
-            console.log(resJon.id);
-            const userFirstName = "David"
-            const userLastName = "Micoin"
-            const userName = await resJon.name
-            console.log("Username", userName);
-            const userEmail = `${resJon.given_name}` + "@gmail.com"
-            const tokenId = resJon.id
-            // take a look at the scopes originally provisioned for the access token
-            console.log(JSON.stringify(tokenInfos, null, 4));
-            // console.log(JSON.stringify(profileInfos, null, 4));
-
-            let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo(userName).once("value");
-            console.log("User", JSON.stringify(promesseRequeteUser, null, 4))
-            console.log(promesseRequeteUser)
-            try {
-                if (promesseRequeteUser !== null) {
-                    let idUser = Object.keys(promesseRequeteUser.val())[0];
-                    console.log("ID", JSON.stringify(idUser, null, 4))
-                    let data = {
-                            idGoogle: tokenId,
-                            token: token,
-                    }
-                    const myUserRef = usersRef.child(idUser);
-                    const myUserInfosRef = myUserRef.child('infos');
-                    usersRef.update(data)
-                    response.send(myUserInfosRef)
+        let token = getTokenFromUrl(request)
+        let userEmail = await getEmailFromToken(getTokenFromUrl(request))
+        console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail )
+        console.log("Response of request");
+        let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
+        try {
+            if (promesseRequeteUser !== null) {
+                let idUser = Object.keys(promesseRequeteUser.val())[0];
+                const myUserRef = usersRef.child(idUser);
+                const myUserInfosRef = myUserRef.child('infos');
+                console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
+                let data = {
+                        token: token,
                 }
-                else {
-                    console.log("User does not exist. Create user")
-                    let data = {
-                        infos:
-                        {
-                            name: userName,
-                            minSportBeginTime: "8",
-                            maxSportBeginTime: "22",
-                            email: userEmail,
-                            idGoogle: tokenId,
-                            token: token,
-                        },
-                        activities: {}
-                    }
-                    usersRef.push(data)
-                    response.send(data)
-                }
+                myUserInfosRef.update(data)
+                response.send(myUserInfosRef.val())
             }
-            catch (err) {
-                console.log("Error catched, user does not exist", err)
+            else {
+                console.log("User does not exist. Create user")
                 let data = {
                     infos:
                     {
-                        name: userName,
+                        name: resJon.name,
                         minSportBeginTime: "8",
                         maxSportBeginTime: "22",
-                        email: userEmail,
-                        idGoogle: tokenId,
+                        email: resJon.email,
+                        address: "",
                         token: token,
                     },
                     activities: {}
@@ -229,14 +220,30 @@ exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
                 usersRef.push(data)
                 response.send(data)
             }
-        });
-        return 0
+        }
+        catch (err) {
+            console.log("Error catched, user does not exist", err)
+            let data = {
+                infos:
+                {
+                    name: resJon.name,
+                    address: "",
+                    minSportBeginTime: "8",
+                    maxSportEndTime: "22",
+                    email: resJon.email,
+                    token: token,
+                },
+                activities: {}
+            }
+            usersRef.push(data)
+            response.send(data)
+            throw new Error("This should not happend, user not Find")
+        }
     }
     catch (err) {
             throw new Error("Request failed", err)
         }
 });
-
 
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
@@ -272,23 +279,9 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
 
     async function addUserActivityToFirebase(agent) {
-
-        let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
-
-
-        // let client = new HttpClient();
-        // try {
-        //     client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?' +
-        //         `key=${keyApiGoogle}&` +
-        //         'input=bordeaux&' +
-        //         'inputtype=textquery', response => {
-        //             console.log("Response of the request")
-        //             console.log(response)
-        //         });
-        // }
-        // catch (err) {
-        //     throw new Error(`Request failed `, error)
-        // }
+        let userEmail = getEmailFromToken(getTokenFromContext(agent))
+        console.log("Email get from context", userEmail)
+        let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
 
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
@@ -386,31 +379,34 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         console.log("LOG ALL CONTEXT")
         console.log(agent.contexts)
         try{
-        let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
-        let idUser = Object.keys(promesseRequeteUser.val())[0];
-        const myUserRef = usersRef.child(idUser);
-        let dataUser = await myUserRef.once("value")
-        let addressUser = dataUser.val().infos.address
-        let contextParameters = getContextParameters(agent, 'newactivity-followup');
-        let nameSport = contextParameters.sport
-        let resultSearchSport = await searchLocationSport(addressUser, nameSport);
-        console.log(resultSearchSport)
-        let guessedAddress = resultSearchSport.address;
-        let distanceInKm = resultSearchSport.distanceInKm;
-        agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: getToken(agent) } });
-        agent.context.set({name: 'new activity - address', lifespan: 2, parameters: {guessedAddress: guessedAddress, token: "bobby"}});
-        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+            let token = getTokenFromContext(agent)
+            let userEmail = getEmailFromToken(getTokenFromContext(agent))
+            console.log("Email get from context", userEmail)
+            let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo("userEmail").once("value");
+            let idUser = Object.keys(promesseRequeteUser.val())[0];
+            const myUserRef = usersRef.child(idUser);
+            let dataUser = await myUserRef.once("value")
+            let addressUser = dataUser.val().infos.address
+            let contextParameters = getContextParameters(agent, 'newactivity-followup');
+            let nameSport = contextParameters.sport
+            let resultSearchSport = await searchLocationSport(addressUser, nameSport);
+            console.log(resultSearchSport)
+            let guessedAddress = resultSearchSport.address;
+            let distanceInKm = resultSearchSport.distanceInKm;
+            agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: token } });
+            agent.context.set({ name: 'new activity - address', lifespan: 2, parameters: { guessedAddress: guessedAddress, token: token } });
+            agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
         }
         catch(err){
             throw new Error("Can't search Location",err)
         }
     }
 
-    async function logAll(agent) {
+    function logAll(agent) {
         try{
             let contextParameters = getContextParameters(agent, 'newactivity-followup');
             console.log(agent.contexts)
-            agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: getToken(agent) } });
+            agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: getTokenFromContext(agent) } });
             agent.add(`Combien de séance ${contextParameters.frequence} de ${contextParameters.sport} ?`)
         }
         catch(err){
@@ -428,7 +424,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     intentMap.set('New Activity - yes', addUserActivityToFirebase);
     intentMap.set('New Activity - more', guessedAddress);
     intentMap.set('New Activity', logAll);
-
 
     // intentMap.set('your intent name here', googleAssistantHandler);
     agent.handleRequest(intentMap);
