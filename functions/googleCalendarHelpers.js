@@ -168,7 +168,7 @@ function isNotOverlapping(intervals, i) {
 function sortIntervalsByStartTime(intervals) {
     return intervals.sort((int1, int2) => {
         if (int1.start > int2.start) return 1;
-        if (int1.start <= int2.start) return -1;
+        else return -1;
     })
 }
 

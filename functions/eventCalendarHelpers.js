@@ -1,5 +1,3 @@
-const {getFreeTimesFromGoogleCalendar} = require('./googleCalendarHelpers');
-
 const firebase = require('firebase');
 
 
@@ -9,7 +7,7 @@ Date.prototype.addDays = function(days) {
 };
 
 
-function getIntervalPeriod(numNextWeek, period)
+exports.getIntervalPeriod = function(numNextWeek, period)
 {
     var today = new Date();
     if(period === "hebdomadaire"){
@@ -62,9 +60,14 @@ function filterFreeTimes(freeTimes, eventDuration)
 function findBetterFreeTime(freeTimesPossible, allEvent)
 {
     //maxmin algorithm
-    let indiceMaxMin, valueMax, valMin,  indiceMin;
+    let indiceMaxMin, valMaxMin, valMin,  indiceMin;
+    if(allEvent.length === 0){
+        console.log("pas d'events encore programmés...")
+        return 0
+    }
     for(var i=0;i<freeTimesPossible.length;i++)
     {
+        valMin = freeTimesPossible[i].end - allEvent[0].start
         for(var j=0;j<allEvent.length;j++)
         {
             if((freeTimesPossible[i].end - allEvent[j].start) < valMin)
@@ -78,22 +81,24 @@ function findBetterFreeTime(freeTimesPossible, allEvent)
                 indiceMin = i;
             }
         }
-        if(valMax < valMin)
+        if(valMaxMin < valMin)
         {
-            valMax = valMin
-            iMax = iMin
+            valMaxMin = valMin
+            indiceMaxMin = iMin
         }
     }
-    return iMax
+    return indiceMaxMin
 }
 
-async function loadAllEvents(usersRef)
+async function loadAllEvents(usersRef, token)
 {
     let promesseRequeteUser = await usersRef.orderByChild('infos/token').equalTo(token).once("value");
 
     let idUser = Object.keys(promesseRequeteUser.val())[0];
     const myUserRef =  await usersRef.child(idUser).once('value');
-    const allActivities = myUserRef['activity'];
+    const allActivities = myUserRef.val()['activities'];
+    console.log("all activities")
+    console.log(allActivities)
     const allEvent = []
     const keysActivity = Object.keys(allActivities)
     for(var i=0;i<allActivities.length;i++)
@@ -106,6 +111,8 @@ async function loadAllEvents(usersRef)
             allEvent.push({start:Date.parse(event.dateTimeStart), end:Date.parse(event.dateTimeEnd)})
         }
     }
+    console.log("allEvent")
+    console.log(allEvent)
     return allEvent;
 }
 
@@ -118,26 +125,30 @@ async function addEvent(eventToAdd, refActivity, token)
 
 async function prepareEvent(bestInterval, eventDuration)
 {
-    let endTime = setTime(bestInterval.start.getTime() + eventDuration*60*1000)
+    let endTime = await bestInterval.start.setTime(bestInterval.start.getTime() + eventDuration*60*1000)
+    console.log("LÀ UNE DATE")
+    console.log(bestInterval.start)
+    console.log("LÀ UNE DATE")
+    console.log(end)
     eventToAdd = {start: bestInterval.start.toISOString(), end: endTime.toISOString()}
     return eventToAdd;
 }
 
-exports.addActivityEvents = async function (nbEvent, eventDuration, token, usersRef, period, refActivity)
+exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, token, usersRef, period, refActivity)
 {
-    let time = getIntervalPeriod(1, period)
-    let freeTimes = await getFreeTimesFromGoogleCalendar(token, time.begin, time.end)
     let freeTimesPossible = filterFreeTimes(freeTimes, eventDuration)
     let j;
-    let allEvent = loadAllEvents(usersRef);
+    let allEvent = await loadAllEvents(usersRef, token);
     let eventAdded;
     let eventToAdd;
     let indiceBetterFreeTime;
     let listEventToAdd = [];
     for(let i=0;i < nbEvent;i++)
     {
-        console.log("dingue")
+        console.log(allEvent)
         indiceBetterFreeTime = findBetterFreeTime(freeTimesPossible, allEvent)
+        console.log("freeTimesPossible")
+        console.log(freeTimesPossible)
         eventToAdd = prepareEvent(freeTimesPossible[indiceBetterFreeTime], eventDuration) //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
         allEvent.push(eventToAdd)
         let start = freeTimesPossible[indiceBetterFreeTime].start
@@ -149,11 +160,9 @@ exports.addActivityEvents = async function (nbEvent, eventDuration, token, users
         listEventToAdd.push(eventToAdd);
     }
     for(let i=0;i<listEventToAdd.length;i++){
-        console.log("dingue 2 ")
 
         PromiseArray.push(addEvent(eventToAdd, refActivity, token)); //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
     }
-    console.log("dingue 2")
 
     await Promise.all(promiseArray)
 

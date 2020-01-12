@@ -26,7 +26,7 @@ const {
 const { getEmailFromToken, getTokenFromUrl } = require("./authenticationHelpers");
 const {addNewEventToGoogleCalendar, setEventData, deleteEventFromGoogleCalendar, getFreeTimesFromGoogleCalendar}
     = require('./googleCalendarHelpers');
-const {addActivityEvents} = require('./eventCalendarHelpers');
+const {addActivityEvents, getIntervalPeriod} = require('./eventCalendarHelpers');
 
 /**
  * When a new event is created in Firebase, creates a new event in the corresponding user's Google Calendar. The id of
@@ -377,7 +377,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             console.log("Sport à ajouter :",contextParameters.sport)
             console.log("Duré :", seanceDurationInMinute)
             try{
-                await addActivityEvents(donnee.nbSeance, seanceDurationInMinute, getTokenFromContext(agent), usersRef, donnee.frequence, refActivity)
+                let token = getTokenFromContext(agent)
+                let time = getIntervalPeriod(1, donnee.frequence)
+                let freeTimes = await getFreeTimes(token, time.begin, time.end)
+                await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
             }
             catch(err){
                 console.log("Error adding news events : ")
