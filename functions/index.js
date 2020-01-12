@@ -10,27 +10,22 @@ const functions = require('firebase-functions');
 const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
-const { authorize, getEmailFromToken, getTokenFromUrl } = require("./authenticationHelpers")
-
 firebase.initializeApp(firebaseConfig);
+
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
-
-
-
 const {
     getContextParameters,
     computeSeanceDuration,
     getTokenFromContext,
     searchLocationSport,
-    getEmailFromContext,
-    } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
+    } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase");
 
-const {
-    HttpClient,
-} = require("./dialogflowFirebaseFulfillment/httpRequest")
 
-const {addNewEventToGoogleCalendar, setEventData, deleteEventFromGoogleCalendar} = require('./googleCalendarHelpers');
+
+const { getEmailFromToken, getTokenFromUrl } = require("./authenticationHelpers");
+const {addNewEventToGoogleCalendar, setEventData, deleteEventFromGoogleCalendar, getFreeTimesFromGoogleCalendar}
+    = require('./googleCalendarHelpers');
 const {addActivityEvents} = require('./eventCalendarHelpers');
 
 /**
@@ -92,7 +87,18 @@ exports.deleteEventFromCalendar = functions.database
  * Returns the list of the free time intervals of the user over the specified period.
  */
 async function getFreeTimes(token, timeMin, timeMax) {
-    return await getFreeTimesFromGoogleCalendar(token, timeMin, timeMax);
+    let timeInterval = {
+        start: timeMin,
+        end: timeMax
+    };
+    let data = await usersRef.orderByChild('infos/name').equalTo("david").once("value");
+    let userId = Object.keys(data.val())[0];
+    let userInfos = data.val()[userId].infos;
+    let nightInterval = {
+        start: userInfos.maxSportEndTime || 22,
+        end: userInfos.minSportBeginTime || 8
+    };
+    return await getFreeTimesFromGoogleCalendar(token, timeInterval, nightInterval);
 }
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
@@ -157,7 +163,7 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
     try {
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not find")
-            throw new Error("404 User not find")            
+            throw new Error("404 User not find")
         }
         else {
             let idUser = Object.keys(promesseRequeteUser.val())[0];

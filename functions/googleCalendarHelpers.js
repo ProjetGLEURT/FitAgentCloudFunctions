@@ -70,14 +70,15 @@ async function deleteEvent(eventId, auth) {
     }
 }
 
-exports.getFreeTimesFromGoogleCalendar = async function (token, timeMin, timeMax) {
+exports.getFreeTimesFromGoogleCalendar = async function (token, timeInterval, nightInterval) {
     const auth = await authorize(token);
-    let response = await getBusy(auth, timeMin, timeMax);
+    let response = await getBusyTimesFromGoogleCalendar(auth, timeInterval);
     let busyTimes = combineBusyTimesFromCalendars(response);
-    busyTimes = convertIntervalsFromStringsToDates(busyTimes);
-    busyTimes = resolveOverlappingIntervals(busyTimes);
+    convertIntervalsFromStringsToDates(busyTimes);
+    addNightIntervals(busyTimes, timeInterval, nightInterval);
+    let busyTimeUnion = getUnionOfIntervals(busyTimes);
 
-    return getFreeTimes(busyTimes, timeMin, timeMax);
+    return getFreeTimes(busyTimeUnion, timeInterval);
 };
 
 function combineBusyTimesFromCalendars(response) {
@@ -92,15 +93,52 @@ function combineBusyTimesFromCalendars(response) {
 }
 
 function convertIntervalsFromStringsToDates(busyTimes) {
-    return busyTimes.map(interval => {
-        return {
-            start: Date.parse(interval.start),
-            end: Date.parse(interval.end)
-        }
+    return busyTimes.forEach(interval => {
+        interval.start = new Date(interval.start);
+        interval.end = new Date(interval.end);
     })
 }
 
-function resolveOverlappingIntervals(busyTimes) {
+// We allow nights to overlap out of the timeInterval as long as at least one of the boundaries is in the timeInterval.
+// This is because we latter apply
+function addNightIntervals(busyTimes, timeInterval, nightInterval) {
+    let intervalStartDate = new Date(timeInterval.start);
+    let intervalEndDate = new Date(timeInterval.end);
+
+    let nightStartDate = hourToDate(nightInterval.start, intervalStartDate);
+    let nightEndDate = hourToDate(nightInterval.end, intervalStartDate);
+    decrementDay(nightStartDate);
+
+    if (nightEndDate < intervalStartDate) {
+        incrementDay(nightEndDate);
+        incrementDay(nightStartDate);
+    }
+
+    while (nightStartDate < intervalEndDate) {
+        busyTimes.push({
+            start: new Date(nightStartDate),
+            end: new Date(nightEndDate)
+        });
+        incrementDay(nightStartDate);
+        incrementDay(nightEndDate);
+    }
+}
+
+function hourToDate(hour, referenceDate) {
+    let date = new Date(referenceDate);
+    date.setHours(hour);
+    return date;
+}
+
+function incrementDay(date) {
+    date.setDate(date.getDate() + 1);
+}
+
+function decrementDay(date) {
+    date.setDate(date.getDate() - 1);
+}
+
+function getUnionOfIntervals(busyTimes) {
     busyTimes = sortIntervalsByStartTime(busyTimes);
     let i = 0;
     while (i < busyTimes.length - 1) {
@@ -115,7 +153,7 @@ function resolveOverlappingIntervals(busyTimes) {
 // We assume that i < intervals.length - 1
 function getLastIntervalToCombineIndex(intervals, intervalEnd) {
     let i = 0;
-    while (intervalEnd > intervals[i + 1].start) {
+    while (intervalEnd >= intervals[i + 1].start) {
         i++;
     }
     return i;
@@ -128,7 +166,10 @@ function isNotOverlapping(intervals, i) {
 }
 
 function sortIntervalsByStartTime(intervals) {
-    return intervals.sort((int1, int2) => int1.start > int2.start)
+    return intervals.sort((int1, int2) => {
+        if (int1.start > int2.start) return 1;
+        if (int1.start <= int2.start) return -1;
+    })
 }
 
 function combineIntervals(intervals, firstIntervalToCombineIndex, lastIntervalToCombineIndex) {
@@ -139,21 +180,18 @@ function combineIntervals(intervals, firstIntervalToCombineIndex, lastIntervalTo
             end: getLatestEnd(intervals.slice(firstIntervalToCombineIndex, lastIntervalToCombineIndex + 1))
         }
     );
-    if (lastIntervalToCombineIndex === intervals.length - 1) {
-        return newIntervals;
-    }
 
     return newIntervals.concat(intervals.slice(lastIntervalToCombineIndex + 1, intervals.length));
 }
 
 function getLatestEnd(intervals) {
-    return intervals.reduce((latestEnd, interval) => interval.end > latestEnd ? interval.end : interval, 0)
+    return intervals.reduce((latestEnd, interval) => interval.end > latestEnd ? interval.end : latestEnd, intervals[0].end)
 }
 
-function getFreeTimes(busyTimes, timeMin, timeMax) {
+function getFreeTimes(busyTimes, timeInterval) {
     let freeTimes = [
         {
-            start: Date.parse(timeMin)
+            start: new Date(timeInterval.start)
         }
     ];
     busyTimes.forEach(busyInterval => {
@@ -164,9 +202,20 @@ function getFreeTimes(busyTimes, timeMin, timeMax) {
             }
         )
     });
-    freeTimes[freeTimes.length - 1].end = Date.parse(timeMax);
+    freeTimes[freeTimes.length - 1].end = new Date(timeInterval.end);
 
-    return freeTimes;
+    return checkCoherenceOfIntervals(freeTimes);
+}
+
+// Removes intervals if they are empty or incoherent.
+function checkCoherenceOfIntervals(intervals) {
+    let coherentIntervals = [];
+
+    intervals.forEach( interval => {
+        if (interval.start < interval.end) coherentIntervals.push(interval);
+    });
+
+    return coherentIntervals;
 }
 
 
@@ -187,14 +236,14 @@ function getCalendarIds(response) {
     });
 }
 
-async function getBusy(auth, timeMin, timeMax) {
+async function getBusyTimesFromGoogleCalendar(auth, timeInterval) {
     const calendar = google.calendar({version: 'v3', auth});
     let calendarIdList = await getCalendarIdList(auth);
     let query = {
         auth: auth,
         resource: {
-            timeMin: timeMin,
-            timeMax: timeMax,
+            timeMin: timeInterval.start,
+            timeMax: timeInterval.end,
             timeZone: 'Europe/Paris',
             items: calendarIdList
         }
