@@ -10,23 +10,19 @@ const functions = require('firebase-functions');
 const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
-
+const { authorize } = require("./authenticationHelpers")
 
 firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
 
-const keyApiGoogle = require("./keyApiGoogle.json");
-const googleMapsClient = require('@google/maps').createClient({
-    key: keyApiGoogle,
-    Promise: Promise,
-});
 
 
 const {
     getContextParameters,
     computeSeanceDuration,
     getToken,
+    searchLocationSport,
     } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
 
 const {
@@ -132,86 +128,110 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
         });
 });
 
-exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
+async function getnameFromToken(request, resTreatement) {
     console.log("waaw")
     console.log(request.headers)
     console.log(request.header("Authorization"));
     let token = request.header("Authorization")
     token = token.substr(7);
     console.log(token)
+    let oAuth2Client = await authorize(token);
+    const tokenInfos = await oAuth2Client.getTokenInfo(token);
     let client = new HttpClient();
     console.log("request sent")
-        // try {
-        //     console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
-        //     `access_token=${token}`)
-        //     response = await client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
-        //     `access_token=${token}`).asPromise()
-        //     console.log("Response of the request")
-        //     console.log(response)
-        //     console.log(response.id)
-                 
-        // }
-        //  catch (err) {
-        //      throw new Error(`Request failed `, err)
-        //  }
     try {
-        console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+        console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&` +
             `access_token=${token}`)
-        return client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
-        `access_token=${token}`, async res => {
-            console.log("Response of the request");
-            console.log(res);
-            let resJon = JSON.parse(res)
-            console.log(resJon.id);
-
-
-            let promesseRequeteUser = await usersRef.orderByChild('infos/idGoogle').equalTo(resJon.id).once("value");
-            let idUser = Object.keys(promesseRequeteUser.val())[0];
-            const myUserInfosRef = promesseRequeteUser.val()[idUser].infos;
-            const myUserActsRef = myUserRef.child('activities');
-            return response.send('4');
-            });
+        return client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&` +
+            `access_token=${token}`, resTreatement);
     }
     catch (err) {
-        throw new Error("Request failed" , err)
+        throw new Error("Request failed", err)
     }
+}
+
+exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
+    try {
+        let token = request.header("Authorization")
+        token = token.substr(7);
+        console.log(token)
+        let oAuth2Client = await authorize(token);
+        const tokenInfos = await oAuth2Client.getTokenInfo(token);
+        await getnameFromToken(request, async res => {
+            console.log("Response of the request");
+            console.log(JSON.stringify(res, null, 4));
+            let resJon = JSON.parse(res)
+            console.log(resJon.id);
+            const userFirstName = "David"
+            const userLastName = "Micoin"
+            const userName = await resJon.name
+            console.log("Username", userName);
+            const userEmail = `${resJon.given_name}` + "@gmail.com"
+            const tokenId = resJon.id
+            // take a look at the scopes originally provisioned for the access token
+            console.log(JSON.stringify(tokenInfos, null, 4));
+            // console.log(JSON.stringify(profileInfos, null, 4));
+
+            let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo(userName).once("value");
+            console.log("User", JSON.stringify(promesseRequeteUser, null, 4))
+            console.log(promesseRequeteUser)
+            try {
+                if (promesseRequeteUser !== null) {
+                    let idUser = Object.keys(promesseRequeteUser.val())[0];
+                    console.log("ID", JSON.stringify(idUser, null, 4))
+                    let data = {
+                            idGoogle: tokenId,
+                            token: token,
+                    }
+                    const myUserRef = usersRef.child(idUser);
+                    const myUserInfosRef = myUserRef.child('infos');
+                    usersRef.update(data)
+                    response.send(myUserInfosRef)
+                }
+                else {
+                    console.log("User does not exist. Create user")
+                    let data = {
+                        infos:
+                        {
+                            name: userName,
+                            minSportBeginTime: "8",
+                            maxSportBeginTime: "22",
+                            email: userEmail,
+                            idGoogle: tokenId,
+                            token: token,
+                        },
+                        activities: {}
+                    }
+                    usersRef.push(data)
+                    response.send(data)
+                }
+            }
+            catch (err) {
+                console.log("Error catched, user does not exist", err)
+                let data = {
+                    infos:
+                    {
+                        name: userName,
+                        minSportBeginTime: "8",
+                        maxSportBeginTime: "22",
+                        email: userEmail,
+                        idGoogle: tokenId,
+                        token: token,
+                    },
+                    activities: {}
+                }
+                usersRef.push(data)
+                response.send(data)
+            }
+        });
+        return 0
+    }
+    catch (err) {
+            throw new Error("Request failed", err)
+        }
 });
 
 
-async function searchLocationSport(address, sport)
-{
-    var reqGeoLoc = {
-        address: address,
-        language: "french"
-    };
-    try{
-        let resGeoLoc = await googleMapsClient.geocode(reqGeoLoc).asPromise();
-        let response = {};
-        let gpsHomePosition = resGeoLoc.json.results[0].geometry.location
-        response['myGpsLocation'] = gpsHomePosition;
-        let req = {
-            location: gpsHomePosition,
-            keyword: sport,
-            rankby: "distance"
-        };
-        let res = await googleMapsClient.placesNearby(req).asPromise();
-        let firstResult = res.json.results[0]
-        let origToDest = {
-            origins:req.location,
-            destinations:firstResult.geometry.location
-        }
-        response['sportGpsDest'] = firstResult.geometry.location;
-        let resDist = await googleMapsClient.distanceMatrix(origToDest).asPromise();
-        response['nameLocationSport'] = firstResult.name;
-        response['address'] = firstResult.vicinity ;
-        response['distanceInKm'] = (resDist.json.rows[0].elements[0].distance.value/1000).toFixed(1);
-        response['timeInMinutes'] = Math.round(resDist.json.rows[0].elements[0].duration.value/60);
-        return response;
-    } catch (err) {
-        console.log(err)
-        throw(JSON.stringify(err, null, 4));
-    }
-}
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
     const agent = new WebhookClient({request, response});
