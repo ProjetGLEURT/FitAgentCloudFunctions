@@ -2,7 +2,7 @@ let getNumContext = function  (agent,name) {
     let numContext = 0
     for(let i = 0; i < agent.contexts.length;i++){
         if(agent.contexts[i].name === name){
-            numContexte = i;
+            numContext = i;
             return numContext
         }
     }

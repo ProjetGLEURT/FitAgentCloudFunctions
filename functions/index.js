@@ -24,9 +24,11 @@ const googleMapsClient = require('@google/maps').createClient({
 
 
 const {
-    getNumContext,
+    getContextParameters,
     computeSeanceDuration,
+    getToken,
     } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
+
 const {
     HttpClient,
 } = require("./dialogflowFirebaseFulfillment/httpRequest")
@@ -178,7 +180,7 @@ async function searchLocationSport(address, sport)
         let resDist = await googleMapsClient.distanceMatrix(origToDest).asPromise();
         response['nameLocationSport'] = firstResult.name;
         response['address'] = firstResult.vicinity ;
-        response['distanceInKm'] = (resDist.json.rows[0].elements[0].distance.value/1000).toFixed(2);
+        response['distanceInKm'] = (resDist.json.rows[0].elements[0].distance.value/1000).toFixed(1);
         response['timeInMinutes'] = Math.round(resDist.json.rows[0].elements[0].duration.value/60);
         return response;
     } catch (err) {
@@ -244,17 +246,15 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         console.log("Contexts of Dialogflow : ")
         console.log(agent.contexts)
 
-        let numContexte = getNumContext(agent, 'newactivity-followup');
-        let contextParameters = agent.contexts[numContexte].parameters;
-        let numContexteValidationDemandee = getNumContext(agent, 'new activity - yes') //context used to ask validation if activity already exist in the database
-
+        let contextParameters = getContextParameters(agent, 'newactivity-followup');
+        let ParametersAskedValidation = getContextParameters(agent, 'new activity - yes'); //context used to ask validation if activity already exist in the database
         let seanceDurationInMinute = computeSeanceDuration(contextParameters);
 
         let confirmationDemandee = false;
         try {
-            console.log("Context True : ")
-            console.log(agent.contexts[numContexteValidationDemandee])
-            confirmationDemandee = agent.contexts[numContexteValidationDemandee].parameters.confirmationDemandee;
+            console.log("Parameters asked validation : ")
+            console.log(ParametersAskedValidation)
+            confirmationDemandee = ParametersAskedValidation.confirmationDemandee;
         }
         catch (error) {
             console.log("ERROR 1005 : ")
@@ -304,15 +304,15 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
         try{
         let data = await myUserActsRef.orderByChild('name').equalTo(nameSport).once("value");
-
+        let contextParameters = getContextParameters(agent, 'newactivity-followup');
         console.log("data", data.val())
-        console.log("parameters", agent.contexts[0].parameters)
+        console.log("parameters", contextParameters)
         if (data.val() === null || confirmationDemandee) {
             agent.add(`Votre activité a été  `);
             //type lieu = dehors, salle, chez soi
             myUserActsRef.push(donnee);
             //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-            agent.add(`ajouté avec succès : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${seanceDurationInMinute} minutes`);
+            agent.add(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
 
             agent.context.set({ name: 'New Activity', lifespan: 2, parameters: {} });
         }
@@ -332,20 +332,39 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
    async function guessedAddress (agent) {
         console.log("SEARCHING SPORT LOCATION")
+        console.log("LOG ALL CONTEXT")
+        console.log(agent.contexts)
+        try{
         let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
         let dataUser = await myUserRef.once("value")
         let addressUser = dataUser.val().infos.address
-        let numContexte = getNumContext(agent, 'newactivity-followup');
-        let contextParameters = agent.contexts[numContexte].parameters;
+        let contextParameters = getContextParameters(agent, 'newactivity-followup');
         let nameSport = contextParameters.sport
         let resultSearchSport = await searchLocationSport(addressUser, nameSport);
         console.log(resultSearchSport)
-        var guessedAddress = resultSearchSport.address;
-        var distanceInKm = resultSearchSport.distanceInKm;
-        agent.context.set({name: 'new activity - address', lifespan: 2, parameters: {guessedAddress: guessedAddress}});
-        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${resultSearchSport.distanceInKm} km de chez vous, cela vous convient-il ?`);
+        let guessedAddress = resultSearchSport.address;
+        let distanceInKm = resultSearchSport.distanceInKm;
+        agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: getToken(agent) } });
+        agent.context.set({name: 'new activity - address', lifespan: 2, parameters: {guessedAddress: guessedAddress, token: "bobby"}});
+        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+        }
+        catch(err){
+            throw new Error("Can't search Location",err)
+        }
+    }
+
+    async function logAll(agent) {
+        try{
+            let contextParameters = getContextParameters(agent, 'newactivity-followup');
+            console.log(agent.contexts)
+            agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: getToken(agent) } });
+            agent.add(`Combien de séance ${contextParameters.frequence} de ${contextParameters.sport} ?`)
+        }
+        catch(err){
+            throw new Error ("Probably issue with token", err)
+        }
     }
 
 
@@ -357,6 +376,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     intentMap.set('add User', addUserInfosToFirebase);
     intentMap.set('New Activity - yes', addUserActivityToFirebase);
     intentMap.set('New Activity - more', guessedAddress);
+    intentMap.set('New Activity', logAll);
 
 
     // intentMap.set('your intent name here', googleAssistantHandler);
