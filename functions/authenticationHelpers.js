@@ -52,3 +52,49 @@ exports.getEmailFromToken = async function (token) {
     console.log("TOKEN INFO", tokenInfos)
     return tokenInfos.email
 }
+
+exports.initializeFirebaseUser = function (token, userEmail, response){
+    let data = {
+        infos:
+        {
+            name: userEmail,
+            minSportBeginTime: "8",
+            maxSportEndTime: "22",
+            email: userEmail,
+            address: "",
+            token: token,
+        },
+        activities: {}
+    }
+    usersRef.push(data)
+    response.send(data)
+}
+
+exports.initializeFirebaseUser = function (token, userEmail, response) {
+    let data = {
+        infos:
+        {
+            name: userEmail,
+            minSportBeginTime: "8",
+            maxSportEndTime: "22",
+            email: userEmail,
+            address: "",
+            token: token,
+        },
+        activities: {}
+    }
+    usersRef.push(data)
+    response.send(data)
+}
+
+exports.refreshTokenInFirebase = async function (token, response, promesseRequeteUser){ //deprecated
+
+    let idUser = Object.keys(promesseRequeteUser.val())[0];
+    const myUserRef = usersRef.child(idUser);
+    const myUserInfosRef = myUserRef.child('infos');
+    let data = {
+        token: token,
+    }
+    myUserInfosRef.update(data)
+    response.send(await myUserRef.once("value"))
+}
