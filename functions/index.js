@@ -10,7 +10,7 @@ const functions = require('firebase-functions');
 const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
-const { authorize } = require("./authenticationHelpers")
+const { authorize, getEmailFromToken, getTokenFromUrl } = require("./authenticationHelpers")
 
 firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
@@ -138,106 +138,111 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
 
 
 
-async function getTokenInfosFromToken(token){
-    let oAuth2Client = await authorize(token);
-    return await oAuth2Client.getTokenInfo(token);
-}
+
 
 exports.updateFirebaseInfo = functions.https.onRequest(async (request, response) =>{
-    
-    let userEmail = getEmailFromToken(getTokenFromUrl(request))
+    console.log("Requete", request)
+    let userEmail = await getEmailFromToken(getTokenFromUrl(request))
+    let userAddressInUrl = "40 cours Pasteur"
+    console.log("Email address from token", userEmail)
+    console.log("address to add", userAddressInUrl)
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     try {
-        if (promesseRequeteUser !== null) {
+        if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
+            response.send("404 User not find")
+            throw new Error("404 User not find")            
+        }
+        else {
             let idUser = Object.keys(promesseRequeteUser.val())[0];
             const myUserRef = usersRef.child(idUser);
             const myUserInfosRef = myUserRef.child('infos');
             console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
             let data = {
-                address: request.address,
+                address: userAddressInUrl,
                 // maxSportBeginTime: request.maxSportBeginTime,
                 // minSportBeginTime: request.minSportBeginTime,
             }
+            console.log("Data to add : ",data)
+
             myUserInfosRef.update(data)
-            response.send(myUserInfosRef.val())
-        }
-        else {
-            response.send("404 User not find")
-            throw new Error("404 User not find")
+            console.log("Updated user info ")
+
+            response.send("BRAVO")
         }
     }
     catch (err) {
+        response.send("user not find in the database")
         throw new Error("User not find in the Database", err)
     }
 });
 
-let getTokenFromUrl = function (request) {
-    let token = request.header("Authorization")
-    token = token.substr(7);
-    console.log("Token Extracted from request : ", token)
-    return token
-}
 
-async function getEmailFromToken(token) {
-    const tokenInfos = await getTokenInfosFromToken(token)
-    console.log("TOKEN INFO", tokenInfos )
-    return tokenInfos.email
-}
 
 exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
     try {
         let token = getTokenFromUrl(request)
         let userEmail = await getEmailFromToken(getTokenFromUrl(request))
         console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail )
-        console.log("Response of request");
         let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
+        console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail)
+        console.log(promesseRequeteUser)
         try {
-            if (promesseRequeteUser !== null) {
-                let idUser = Object.keys(promesseRequeteUser.val())[0];
-                const myUserRef = usersRef.child(idUser);
-                const myUserInfosRef = myUserRef.child('infos');
-                console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
-                let data = {
-                        token: token,
-                }
-                myUserInfosRef.update(data)
-                response.send(myUserInfosRef.val())
-            }
-            else {
-                console.log("User does not exist. Create user")
+            if (promesseRequeteUser === undefined || promesseRequeteUser === null ) {
+                console.log("REQUEST USER = NUL")
                 let data = {
                     infos:
                     {
-                        name: resJon.name,
+                        name: userEmail,
                         minSportBeginTime: "8",
-                        maxSportBeginTime: "22",
-                        email: resJon.email,
+                        maxSportBeginTime: "21",
+                        email: userEmail,
                         address: "",
                         token: token,
                     },
                     activities: {}
                 }
+                console.log("URL TO PUSH", usersRef)
                 usersRef.push(data)
+                console.log("Pushed data", data)
+
                 response.send(data)
+            }
+            else {
+                console.log("User find in the database")
+                console.log(JSON.stringify(promesseRequeteUser,null,4))
+                console.log("Id : ")
+                let idUser = Object.keys(promesseRequeteUser.val())[0];
+                console.log("USER ID", idUser)
+                const myUserRef = usersRef.child(idUser);
+                const myUserInfosRef = myUserRef.child('infos');
+                console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
+                let data = {
+                    token: token,
+                }
+                console.log("MIS A JOURS DU TOKEN")
+                myUserInfosRef.update(data)
+                console.log("infos", await myUserInfosRef.once("value"))
+
+                response.send(await myUserRef.once("value"))
             }
         }
         catch (err) {
-            console.log("Error catched, user does not exist", err)
+            console.log("Catch REQUEST USER = NUL")
             let data = {
                 infos:
                 {
-                    name: resJon.name,
-                    address: "",
+                    name: userEmail,
                     minSportBeginTime: "8",
-                    maxSportEndTime: "22",
-                    email: resJon.email,
+                    maxSportBeginTime: "22",
+                    email: userEmail,
+                    address: "",
                     token: token,
                 },
                 activities: {}
             }
             usersRef.push(data)
             response.send(data)
-            throw new Error("This should not happend, user not Find")
+            throw new Error("This should not happend, user not Find", err)
         }
     }
     catch (err) {
@@ -279,7 +284,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
 
     async function addUserActivityToFirebase(agent) {
-        let userEmail = getEmailFromToken(getTokenFromContext(agent))
+        let userEmail = await getEmailFromToken(getTokenFromContext(agent))
         console.log("Email get from context", userEmail)
         let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
 
@@ -356,9 +361,12 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             //type lieu = dehors, salle, chez soi
             myUserActsRef.push(donnee);
             //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-            agent.add(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
+            console.log("Sport à ajouter :",contextParameters.sport)
+            console.log("Duré :", seanceDurationInMinute)
+            console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`)
+            agent.add(`Ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
+            console.log("THE END")
 
-            agent.context.set({ name: 'New Activity', lifespan: 2, parameters: {} });
         }
         else {
 
@@ -380,13 +388,17 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         console.log(agent.contexts)
         try{
             let token = getTokenFromContext(agent)
-            let userEmail = getEmailFromToken(getTokenFromContext(agent))
+            let userEmail = await getEmailFromToken(getTokenFromContext(agent))
             console.log("Email get from context", userEmail)
-            let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo("userEmail").once("value");
+            let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
             let idUser = Object.keys(promesseRequeteUser.val())[0];
             const myUserRef = usersRef.child(idUser);
+            console.log("Id of user", idUser)
+
             let dataUser = await myUserRef.once("value")
             let addressUser = dataUser.val().infos.address
+            console.log("Address get from database", addressUser)
+
             let contextParameters = getContextParameters(agent, 'newactivity-followup');
             let nameSport = contextParameters.sport
             let resultSearchSport = await searchLocationSport(addressUser, nameSport);
