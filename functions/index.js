@@ -95,10 +95,12 @@ async function getFreeTimes(token, timeMin, timeMax) {
     return await getFreeTimesFromGoogleCalendar(token, timeMin, timeMax);
 }
 
-exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response) => {
+exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
     var id = request.query.id;
 
-    var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
+    let userEmail = await getEmailFromToken(getTokenFromUrl(request))
+    console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail)
+    let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
 
     return promesseRequeteUser.then(data => {
 
@@ -119,9 +121,11 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response)
         });
 });
 
-exports.apiActiviteUser = functions.https.onRequest((request, response) => {
+exports.apiActiviteUser = functions.https.onRequest(async (request, response) => {
 
-    var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
+    let userEmail = await getEmailFromToken(getTokenFromUrl(request))
+    console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail)
+    let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
 
     return promesseRequeteUser.then(data => {
         var idUser = Object.keys(data.val())[0];
@@ -142,11 +146,13 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
 
 
 exports.updateFirebaseInfo = functions.https.onRequest(async (request, response) =>{
-    console.log("Requete", request)
+    console.log("Requete 5 : ", request)
+    console.log("address to add", request.headers)
+    let token = request.header("Authorization")
+    console.log("address to add", token)
     let userEmail = await getEmailFromToken(getTokenFromUrl(request))
     let userAddressInUrl = "40 cours Pasteur"
-    console.log("Email address from token", userEmail)
-    console.log("address to add", userAddressInUrl)
+    console.log("Email address from token", headers)
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     try {
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
