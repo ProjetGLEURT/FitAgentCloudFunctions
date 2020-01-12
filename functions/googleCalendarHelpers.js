@@ -218,6 +218,7 @@ function checkCoherenceOfIntervals(intervals) {
     return coherentIntervals;
 }
 
+
 async function getCalendarIdList(auth) {
     const calendar = google.calendar({version: 'v3', auth});
     let response;
@@ -253,3 +254,4 @@ async function getBusyTimesFromGoogleCalendar(auth, timeInterval) {
         throw new Error('There was an error while requesting freebusy info from Google Calendar: ' + err)
     }
 }
+
