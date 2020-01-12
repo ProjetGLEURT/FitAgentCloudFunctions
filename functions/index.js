@@ -368,7 +368,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
                 await addActivityEvents(donnee.nbSeance, seanceDurationInMinute, getTokenFromContext(agent), usersRef, donnee.frequence, refActivity)
             }
             catch(err){
-                console.log("Error adding news events : ", err)
+                console.log("Error adding news events : ")
+                console.log(err)
             }
             console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`)
             agent.add(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);

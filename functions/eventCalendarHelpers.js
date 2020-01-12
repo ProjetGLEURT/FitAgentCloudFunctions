@@ -12,7 +12,7 @@ Date.prototype.addDays = function(days) {
 function getIntervalPeriod(numNextWeek, period)
 {
     var today = new Date();
-    if(period === "week"){
+    if(period === "hebdomadaire"){
         var conversionNumWeeks = new Array(6, 0, 1, 2, 3, 4, 5)
         trueNumDay = conversionNumWeeks[today.getDay()]
         begin = new Date();
@@ -136,6 +136,7 @@ exports.addActivityEvents = async function (nbEvent, eventDuration, token, users
     let listEventToAdd = [];
     for(let i=0;i < nbEvent;i++)
     {
+        console.log("dingue")
         indiceBetterFreeTime = findBetterFreeTime(freeTimesPossible, allEvent)
         eventToAdd = prepareEvent(freeTimesPossible[indiceBetterFreeTime], eventDuration) //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
         allEvent.push(eventToAdd)
@@ -148,8 +149,12 @@ exports.addActivityEvents = async function (nbEvent, eventDuration, token, users
         listEventToAdd.push(eventToAdd);
     }
     for(let i=0;i<listEventToAdd.length;i++){
+        console.log("dingue 2 ")
+
         PromiseArray.push(addEvent(eventToAdd, refActivity, token)); //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
     }
+    console.log("dingue 2")
+
     await Promise.all(promiseArray)
 
 
