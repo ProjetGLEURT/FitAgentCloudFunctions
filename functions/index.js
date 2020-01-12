@@ -86,9 +86,15 @@ exports.deleteEventFromCalendar = functions.database
         await deleteEventFromGoogleCalendar(googleEventId, token);
     });
 
+/**
+ * Returns the list of the free time intervals of the user over the specified period.
+ */
+async function getFreeTimes(token, timeMin, timeMax) {
+    return await getFreeTimesFromGoogleCalendar(token, timeMin, timeMax);
+}
+
 exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response) => {
     var id = request.query.id;
-
 
     var promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
 
