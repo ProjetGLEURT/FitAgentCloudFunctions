@@ -31,6 +31,7 @@ const {
 } = require("./dialogflowFirebaseFulfillment/httpRequest")
 
 const {addNewEventToGoogleCalendar, setEventData, deleteEventFromGoogleCalendar} = require('./googleCalendarHelpers');
+const {addActivityEvents} = require('./eventCalendarHelpers');
 
 /**
  * When a new event is created in Firebase, creates a new event in the corresponding user's Google Calendar. The id of
@@ -359,12 +360,18 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         if (data.val() === null || confirmationDemandee) {
             agent.add(`Votre activité a été  `);
             //type lieu = dehors, salle, chez soi
-            myUserActsRef.push(donnee);
+            let refActivity = myUserActsRef.push(donnee);
             //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
             console.log("Sport à ajouter :",contextParameters.sport)
             console.log("Duré :", seanceDurationInMinute)
+            try{
+                await addActivityEvents(donnee.nbSeance, seanceDurationInMinute, getTokenFromContext(agent), usersRef, donnee.frequence, refActivity)
+            }
+            catch(err){
+                console.log("Error adding news events : ", err)
+            }
             console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`)
-            agent.add(`Ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
+            agent.add(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
             console.log("THE END")
 
         }

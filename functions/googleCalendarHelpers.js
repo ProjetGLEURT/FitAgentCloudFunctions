@@ -169,6 +169,7 @@ function getFreeTimes(busyTimes, timeMin, timeMax) {
     return freeTimes;
 }
 
+
 async function getCalendarIdList(auth) {
     const calendar = google.calendar({version: 'v3', auth});
     let response;
@@ -204,3 +205,4 @@ async function getBusy(auth, timeMin, timeMax) {
         throw new Error('There was an error while requesting freebusy info from Google Calendar: ' + err)
     }
 }
+
