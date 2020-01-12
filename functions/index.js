@@ -10,8 +10,6 @@ const functions = require('firebase-functions');
 const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
-
-
 firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
@@ -80,7 +78,18 @@ exports.deleteEventFromCalendar = functions.database
  * Returns the list of the free time intervals of the user over the specified period.
  */
 async function getFreeTimes(token, timeMin, timeMax) {
-    return await getFreeTimesFromGoogleCalendar(token, timeMin, timeMax);
+    let timeInterval = {
+        start: timeMin,
+        end: timeMax
+    };
+    let data = await usersRef.orderByChild('infos/name').equalTo("david").once("value");
+    let userId = Object.keys(data.val())[0];
+    let userInfos = data.val()[userId].infos;
+    let nightInterval = {
+        start: userInfos.maxSportEndTime || 22,
+        end: userInfos.minSportBeginTime || 8
+    };
+    return await getFreeTimesFromGoogleCalendar(token, timeInterval, nightInterval);
 }
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response) => {
