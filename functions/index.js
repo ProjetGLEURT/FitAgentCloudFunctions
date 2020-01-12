@@ -1,11 +1,6 @@
+// See https://github.com/dialogflow/dialogflow-fulfillment-nodejs
+// for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
-
-const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-const keyApiGoogle = require("./keyApiGoogle.json");
-const googleMapsClient = require('@google/maps').createClient({
-    key: keyApiGoogle,
-    Promise: Promise,
-});
 
 const {WebhookClient} = require('dialogflow-fulfillment');
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
@@ -14,6 +9,8 @@ const functions = require('firebase-functions');
 
 const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
+
+
 
 firebase.initializeApp(firebaseConfig);
 const dbRef = firebase.database().ref();
@@ -34,11 +31,7 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
         const event = snapshot.val();
         const eventRef = snapshot.ref;
         const userId = context.params.userId;
-        const activityId = context.params.activityId;
-
-        let activity = await getActivityInfosFromFirebase(userId, activityId);
-
-        const eventData = setEventData(event, activity);
+        const eventData = setEventData(event);
 
         let token = await getStoredTokenFromFirebase(userId);
 
@@ -66,15 +59,6 @@ async function addGoogleEventIdToFirebase(eventId, eventRef) {
         await eventRef.update(data);
     } catch (err) {
         throw new Error("Can't get user's access token: " + err);
-    }
-}
-
-async function getActivityInfosFromFirebase(userId, activityId) {
-    try {
-        let activitySnapshot = await usersRef.child(userId + '/activities/' + activityId).once("value");
-        return activitySnapshot.val()
-    } catch (err) {
-        throw new Error("Problem getting activity " + activityId + " from user " + userId + ": " + err);
     }
 }
 
@@ -118,9 +102,8 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest((request, response)
         return 0;
     })
         .catch(err => {
-            console.log(err);
-            response.send("ERREUR 1003", err);
-            return 0;
+            response.send("Can not remove the activity : ", err);
+            throw new Error("Can not remove the activity : ", err)
         });
 });
 
@@ -136,31 +119,91 @@ exports.apiActiviteUser = functions.https.onRequest((request, response) => {
         return 0;
     })
         .catch(err => {
-            console.log(err);
-            response.send("ERREUR 1002", err);
-            return 0;
+            response.send("Can not remove the activity : ", err);
+            throw new Error("Issue with User references",err)
         });
 });
 
+exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
+    console.log("waaw")
+    console.log(request.headers)
+    console.log(request.header("Authorization"));
+    let token = request.header("Authorization")
+    token = token.substr(7);
+    console.log(token)
+    let client = new HttpClient();
+    console.log("request sent")
+        // try {
+        //     console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+        //     `access_token=${token}`)
+        //     response = await client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+        //     `access_token=${token}`).asPromise()
+        //     console.log("Response of the request")
+        //     console.log(response)
+        //     console.log(response.id)
 
-exports.test = functions.https.onRequest(async (request, response) => {
-
-    var gpsHomePosition = [-33.8665433, 151.1956316];
-
-    var req = {
-        location: gpsHomePosition,
-        radius: 10000,
-        type: 'train_station'
-    };
+        // }
+        //  catch (err) {
+        //      throw new Error(`Request failed `, err)
+        //  }
     try {
+        console.log(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+            `access_token=${token}`)
+        return client.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&`+
+        `access_token=${token}`, async res => {
+            console.log("Response of the request");
+            console.log(res);
+            let resJon = JSON.parse(res)
+            console.log(resJon.id);
+
+
+            let promesseRequeteUser = await usersRef.orderByChild('infos/idGoogle').equalTo(resJon.id).once("value");
+            let idUser = Object.keys(promesseRequeteUser.val())[0];
+            const myUserInfosRef = promesseRequeteUser.val()[idUser].infos;
+            const myUserActsRef = myUserRef.child('activities');
+            return response.send('4');
+            });
+    }
+    catch (err) {
+        throw new Error("Request failed" , err)
+    }
+});
+
+
+async function searchLocationSport(address, sport)
+{
+    var reqGeoLoc = {
+        address: address,
+        language: "french"
+    };
+    try{
+        let resGeoLoc = await googleMapsClient.geocode(reqGeoLoc).asPromise();
+        let response = {};
+        let gpsHomePosition = resGeoLoc.json.results[0].geometry.location
+        response['myGpsLocation'] = gpsHomePosition;
+        let req = {
+            location: gpsHomePosition,
+            keyword: sport,
+            rankby: "distance"
+        };
         let res = await googleMapsClient.placesNearby(req).asPromise();
-        console.log(res);
-        return response.send(res);
+        let firstResult = res.json.results[0]
+        let origToDest = {
+            origins:req.location,
+            destinations:firstResult.geometry.location
+        }
+        response['sportGpsDest'] = firstResult.geometry.location;
+        let resDist = await googleMapsClient.distanceMatrix(origToDest).asPromise();
+        response['nameLocationSport'] = firstResult.name;
+        response['address'] = firstResult.vicinity ;
+        response['distanceInKm'] = (resDist.json.rows[0].elements[0].distance.value/1000).toFixed(2);
+        response['timeInMinutes'] = Math.round(resDist.json.rows[0].elements[0].duration.value/60);
+        return response;
     } catch (err) {
         console.log(err)
         throw(JSON.stringify(err, null, 4));
     }
-});
+}
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
     const agent = new WebhookClient({request, response});
@@ -180,8 +223,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             infos:
                 {
                     name: name,
+                    email: "dvdmcn66@gmail.com",
                     preference: "afternoon",
-                    adresse: "9 rue Jean Luc Mélenchon",
+                    idGoogle: 105810815818197160000,
+                    adress: "9 rue Jean Luc Mélenchon",
                 }
         }
         usersRef.push(data)
@@ -192,119 +237,134 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     }
 
 
-    function addUserActivityToFirebase(agent) {
+    async function addUserActivityToFirebase(agent) {
 
-        let promesseRequeteUser = Promise.resolve(usersRef.orderByChild('infos/name').equalTo('david').once("value"));
-
-
-        let client = new HttpClient();
-        try {
-            client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?' +
-                `key=${keyApiGoogle}&` +
-                'input=bordeaux&' +
-                'inputtype=textquery', response => {
-                console.log("Response of the request")
-                console.log(response)
-            });
-        } catch (err) {
-            throw new Error(`Request failed `, error)
-        }
-        return promesseRequeteUser.then(data => {
-
-            let idUser = Object.keys(data.val())[0];
-            const myUserRef = usersRef.child(idUser);
-            const myUserActsRef = myUserRef.child('activities');
+        let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
 
 
-            console.log("BAH VOYONS")
-            console.log(agent.contexts)
+        // let client = new HttpClient();
+        // try {
+        //     client.get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json?' +
+        //         `key=${keyApiGoogle}&` +
+        //         'input=bordeaux&' +
+        //         'inputtype=textquery', response => {
+        //             console.log("Response of the request")
+        //             console.log(response)
+        //         });
+        // }
+        // catch (err) {
+        //     throw new Error(`Request failed `, error)
+        // }
 
-            console.log("Contexts of Dialogflow : ")
-            console.log(agent.contexts)
+        let idUser = Object.keys(promesseRequeteUser.val())[0];
+        const myUserRef = usersRef.child(idUser);
+        const myUserActsRef = myUserRef.child('activities');
+
+        console.log("Contexts of Dialogflow : ")
+        console.log(agent.contexts)
 
             let numContexte = getNumContext(agent, 'newactivity-followup');
             let contextParameters = agent.contexts[numContexte].parameters;
             let numContexteValidationDemandee = getNumContext(agent, 'new activity - yes') //context used to ask validation if activity already exist in the database
 
-            // computeSeanceDuration
-            let seanceDurationInMinute = computeSeanceDuration(contextParameters);
+        let seanceDurationInMinute = computeSeanceDuration(contextParameters);
 
-            let confirmationDemandee = false;
-            try {
-                console.log("Contexte True : ")
-                console.log(agent.contexts[numContexteValidationDemandee])
-                confirmationDemandee = agent.contexts[numContexteValidationDemandee].parameters.confirmationDemandee;
-            } catch (error) {
-                console.log("ERROR 1005 : ")
-                console.log(error)
-                confirmationDemandee = false
-                throw new Error(`Check dialogflow context `, error)
-            }
-            /*if(agent.contexts[agent.contexts.length-2]!==undefined && agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee === true)
-                confirmationDemandee = true*/
-            let nameSport = contextParameters.sport
+        let confirmationDemandee = false;
+        try {
+            console.log("Context True : ")
+            console.log(agent.contexts[numContexteValidationDemandee])
+            confirmationDemandee = agent.contexts[numContexteValidationDemandee].parameters.confirmationDemandee;
+        }
+        catch (error) {
+            console.log("ERROR 1005 : ")
+            console.log(error)
+            confirmationDemandee = false
+            throw new Error(`Check dialogflow context `, error)
+        }
+        /*if(agent.contexts[agent.contexts.length-2]!==undefined && agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee === true)
+            confirmationDemandee = true*/
+        let nameSport = contextParameters.sport
 
-            let homeTimeAmount = -1
-            let workTimeAmount = -1
-            if (contextParameters.homeTime !== undefined && contextParameters.homeTime.amount !== undefined)
+
+
+        let homeTimeAmount
+        let workTimeAmount
+        let addressToPush = contextParameters.address
+        if (addressToPush === undefined) {
+            if (contextParameters.homeTime !== undefined && contextParameters.homeTime.amount !== undefined){
                 homeTimeAmount = contextParameters.homeTime.amount;
-            if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined)
+            }
+            if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined){
                 workTimeAmount = contextParameters.workTime.amount;
-
-            let addressToPush = contextParameters.address
-            if (addressToPush === undefined) {
-                addressToPush = "9 rue des inventions"
             }
-            let donnee = {
-                name: nameSport,
-                placeType: contextParameters.placeType,
-                address: addressToPush,
-                homeTime: homeTimeAmount,
-                workTime: workTimeAmount,
-                frequence: contextParameters.frequence,
-                nbSeance: contextParameters.nbSeance,
-                duration: seanceDurationInMinute,
+            else{
+                console.log("SEARCHING SPORT LOCATION")
+                let dataUser = await myUserRef.once("value")
+                let addressUser = dataUser.val().infos.address
+                var resultSearchSport = await searchLocationSport(addressUser, nameSport);
+                console.log(resultSearchSport)
+                addressToPush = resultSearchSport
+                workTimeAmount = resultSearchSport.timeInMinutes
+                homeTimeAmount = 1
             }
+        }
 
-            let promesseRequeteSport = Promise.resolve(myUserActsRef.orderByChild('name').equalTo(nameSport).once("value"));
+        var donnee = {
+            name: nameSport,
+            placeType: contextParameters.placeType,
+            address: addressToPush,
+            kmToSport: resultSearchSport.distanceInKm,
+            homeTime: homeTimeAmount,
+            workTime: workTimeAmount,
+            frequence: contextParameters.frequence,
+            nbSeance: contextParameters.nbSeance,
+            duration: seanceDurationInMinute,
+        }
 
-            return promesseRequeteSport.then(data => {
+        try{
+        let data = await myUserActsRef.orderByChild('name').equalTo(nameSport).once("value");
 
-                console.log("data", data.val())
-                console.log("parameters", agent.contexts[0].parameters)
-                if (data.val() === null || confirmationDemandee) {
-                    agent.add(`Votre activité a été  `);
-                    //type lieu = dehors, salle, chez soi
-                    myUserActsRef.push(donnee)
-                    //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-                    agent.add(`ajouté avec succès : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${seanceDurationInMinute} minutes`);
+        console.log("data", data.val())
+        console.log("parameters", agent.contexts[0].parameters)
+        if (data.val() === null || confirmationDemandee) {
+            agent.add(`Votre activité a été  `);
+            //type lieu = dehors, salle, chez soi
+            myUserActsRef.push(donnee);
+            //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
+            agent.add(`ajouté avec succès : ${agent.contexts[0].parameters.sport}, ${agent.contexts[0].parameters.frequence}, ${seanceDurationInMinute} minutes`);
 
-                    agent.context.set({name: 'New Activity', lifespan: 2, parameters: {}});
-                } else {
+            agent.context.set({ name: 'New Activity', lifespan: 2, parameters: {} });
+        }
+        else {
 
-                    donnee.confirmationDemandee = true;
-                    agent.context.set({name: 'new activity - yes', lifespan: 2, parameters: donnee});
-                    agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
-                }
-                return 0;
-            })
-                .catch(err => {
-                    console.log(err);
-                    agent.add(`ERROR votre activité n'a pas pu être ajouté. Désoler du dérangement`);
-                    throw new Error("Activity can't be add to the database ", err)
-                });
-        })
-            .catch(err => {
-                console.log(err);
-                agent.add(`WOOOW BUG 1000`);
-                throw new Error("Check dialogflow contexts", err)
-            });
+            donnee.confirmationDemandee = true;
+            agent.context.set({ name: 'new activity - yes', lifespan: 2, parameters: donnee });
+            agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
+        }
+        return 0;
+        }
+        catch(err){
+            agent.add(`ERROR votre activité n'a pas pu être ajouté. Désoler du dérangement`);
+            throw new Error("Activity can't be add to the database ", err)
+        }
     }
 
-    function guessedAddress() {
-        var guessedAddress = "9 rue des inventions";
+   async function guessedAddress (agent) {
+        console.log("SEARCHING SPORT LOCATION")
+        let promesseRequeteUser = await usersRef.orderByChild('infos/name').equalTo('david').once("value");
+        let idUser = Object.keys(promesseRequeteUser.val())[0];
+        const myUserRef = usersRef.child(idUser);
+        let dataUser = await myUserRef.once("value")
+        let addressUser = dataUser.val().infos.address
+        let numContexte = getNumContext(agent, 'newactivity-followup');
+        let contextParameters = agent.contexts[numContexte].parameters;
+        let nameSport = contextParameters.sport
+        let resultSearchSport = await searchLocationSport(addressUser, nameSport);
+        console.log(resultSearchSport)
+        var guessedAddress = resultSearchSport.address;
+        var distanceInKm = resultSearchSport.distanceInKm;
         agent.context.set({name: 'new activity - address', lifespan: 2, parameters: {guessedAddress: guessedAddress}});
-        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress}, cela vous convient-il ?`);
+        agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${resultSearchSport.distanceInKm} km de chez vous, cela vous convient-il ?`);
     }
 
 
