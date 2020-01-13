@@ -74,6 +74,7 @@ exports.getFreeTimesFromGoogleCalendar = async function (token, timeInterval, ni
     const auth = await authorize(token);
 
     let response = await getBusyTimesFromGoogleCalendar(auth, timeInterval);
+
     let busyTimes = combineBusyTimesFromCalendars(response);
     convertIntervalsFromStringsToDates(busyTimes);
     addNightIntervals(busyTimes, timeInterval, nightInterval);
@@ -101,7 +102,6 @@ function convertIntervalsFromStringsToDates(busyTimes) {
 }
 
 // We allow nights to overlap out of the timeInterval as long as at least one of the boundaries is in the timeInterval.
-// This is because we latter apply
 function addNightIntervals(busyTimes, timeInterval, nightInterval) {
     let intervalStartDate = new Date(timeInterval.start);
     let intervalEndDate = new Date(timeInterval.end);
@@ -143,12 +143,20 @@ function getUnionOfIntervals(busyTimes) {
     busyTimes = sortIntervalsByStartTime(busyTimes);
     let i = 0;
     while (i < busyTimes.length - 1) {
-        let intervalEnd = busyTimes[i].end;
-        let lastIntervalToCombineIndex = getLastIntervalToCombineIndex(busyTimes, intervalEnd);
         if (isNotOverlapping(busyTimes, i)) i++;
-        else busyTimes = combineIntervals(busyTimes, i, lastIntervalToCombineIndex);
+        else {
+            const intervalEnd = busyTimes[i].end;
+            const lastIntervalToCombineIndex = getLastIntervalToCombineIndex(busyTimes, intervalEnd);
+            busyTimes = combineIntervals(busyTimes, i, lastIntervalToCombineIndex);
+        }
     }
     return busyTimes;
+}
+
+// We can assume that there is not overlap to the left. We thus only have to check overlap to the right.
+// We also assume that i < intervals.length - 1.
+function isNotOverlapping(intervals, i) {
+    return intervals[i].end < intervals[i + 1].start;
 }
 
 // We assume that i < intervals.length - 1
@@ -158,12 +166,6 @@ function getLastIntervalToCombineIndex(intervals, intervalEnd) {
         i++;
     }
     return i;
-}
-
-// We can assume that there is not overlap to the left. We thus only have to check overlap to the right.
-// We also assume that i < intervals.length - 1.
-function isNotOverlapping(intervals, i) {
-    return intervals[i].end < intervals[i + 1].start;
 }
 
 function sortIntervalsByStartTime(intervals) {
