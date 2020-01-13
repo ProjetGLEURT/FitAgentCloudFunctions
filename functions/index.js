@@ -118,11 +118,12 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, res
         const myUserActsRef = myUserRef.child('activities');
         myUserActsRef.child(acitivityIdToDelete).remove();
         response.send("Activity delete")
-    } catch (err) {
+    })
+    .catch (err) {
         response.send("Can not remove the activity : " + err);
         throw new Error("Can not remove the activity : " + err)
-    }
-});
+    });
+}
 
 exports.apiActiviteUser = functions.https.onRequest(async (request, response) => {
 
