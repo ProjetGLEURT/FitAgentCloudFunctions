@@ -121,7 +121,6 @@ async function getNightIntervalFromUserInfos(token) {
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
     let acitivityIdToDelete = request.query.id;
-
     let userEmail = await getEmailFromToken(getTokenFromUrl(request))
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     console.log(`Delete the user activitiy ${acitivityIdToDelete} to the user ${userEmail}`);
@@ -135,7 +134,6 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, res
 });
 
 exports.apiActiviteUser = functions.https.onRequest(async (request, response) => {
-
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     console.log("Give user activities to the user with useremail :", userEmail);
@@ -151,7 +149,6 @@ exports.apiActiviteUser = functions.https.onRequest(async (request, response) =>
 
 
 exports.updateFirebaseInfo = functions.https.onRequest(async (request, response) => {
-
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     console.log("Updating Firebase User Information");
@@ -159,7 +156,7 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not found");
         } else {
-            updateAddressInFirebase(userAddressInUrl, usersRef, promesseRequeteUser, response)
+            updateAddressInFirebase(request.headers.address, usersRef, promesseRequeteUser, response)
         }
     } catch (err) {
         response.send("User not find in the database");
@@ -270,8 +267,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
         try {
             let data = await myUserActsRef.orderByChild('name').equalTo(nameSport).once("value");
             let contextParameters = getContextParameters(agent, 'newactivity-followup');
-            console.log("data", data.val());
+            console.log("Existing data in the database : ", data.val());
             console.log("parameters", contextParameters);
+            console.log("Data to add to database", donnee);
+
             if (data.val() === null || confirmationDemandee) {
                 agent.add(`Votre activité a été  `);
                 //type lieu = dehors, salle, chez soi
@@ -343,20 +342,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
         }
     }
 
-    function logAll(agent) {
-        try {
-            let contextParameters = getContextParameters(agent, 'newactivity-followup');
-            console.log(agent.contexts);
-            agent.context.set({
-                name: 'newactivity-token',
-                lifespan: 5,
-                parameters: {token: getTokenFromContext(agent)}
-            });
-            agent.add(`Combien de séance ${contextParameters.frequence} de ${contextParameters.sport} ?`)
-        } catch (err) {
-            throw new Error("Probably issue with token" + err)
-        }
-    }
 
 
     // See https://github.com/dialogflow/fulfillment-actions-library-nodejs
@@ -365,8 +350,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
     // Run the proper function handler based on the matched Dialogflow intent name
     let intentMap = new Map();
     intentMap.set('New Activity - yes', addUserActivityToFirebase);
-    intentMap.set('New Activity - more', guessedAddress);
-    intentMap.set('New Activity', logAll);
+    intentMap.set('New Activity', guessedAddress);
 
     // intentMap.set('your intent name here', googleAssistantHandler);
     await agent.handleRequest(intentMap);
