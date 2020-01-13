@@ -5,7 +5,9 @@ const readFileAsync = promisify(fs.readFile);
 
 const CREDENTIALS_FILE = "credentials.json";
 
-exports.authorize = async function (token) {
+exports.authorize = authorize;
+
+async function authorize(token) {
     let credentials = await readCredentials();
 
     const {client_secret, client_id, redirect_uris} = credentials.installed;
@@ -13,7 +15,7 @@ exports.authorize = async function (token) {
     oAuth2Client.setCredentials({access_token: token});
 
     return oAuth2Client;
-};
+}
 
 async function readCredentials() {
     try {

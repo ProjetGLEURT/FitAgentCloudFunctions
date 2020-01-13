@@ -38,7 +38,11 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
         const event = snapshot.val();
         const eventRef = snapshot.ref;
         const userId = context.params.userId;
-        const eventData = setEventData(event);
+
+        const activityId = context.params.activityId;
+
+        let activity = await getActivityInfosFromFirebase(userId, activityId);
+        const eventData = setEventData(event, activity);
 
         let token = await getStoredTokenFromFirebase(userId);
 
@@ -46,6 +50,15 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
 
         await addGoogleEventIdToFirebase(eventRessource.data.id, eventRef);
     });
+
+async function getActivityInfosFromFirebase(userId, activityId) {
+    try {
+        let activitySnapshot = await usersRef.child(userId + '/activities/' + activityId).once("value");
+        return activitySnapshot.val()
+    } catch (err) {
+        throw new Error("Problem getting activity " + activityId + " from user " + userId + ": " + err);
+    }
+}
 
 async function getStoredTokenFromFirebase(userId) {
     let tokenSnapshot;

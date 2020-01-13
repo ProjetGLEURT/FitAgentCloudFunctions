@@ -72,6 +72,7 @@ async function deleteEvent(eventId, auth) {
 
 exports.getFreeTimesFromGoogleCalendar = async function (token, timeInterval, nightInterval) {
     const auth = await authorize(token);
+
     let response = await getBusyTimesFromGoogleCalendar(auth, timeInterval);
     let busyTimes = combineBusyTimesFromCalendars(response);
     convertIntervalsFromStringsToDates(busyTimes);
