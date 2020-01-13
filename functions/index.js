@@ -38,7 +38,11 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
         const event = snapshot.val();
         const eventRef = snapshot.ref;
         const userId = context.params.userId;
-        const eventData = setEventData(event);
+
+        const activityId = context.params.activityId;
+
+        let activity = await getActivityInfosFromFirebase(userId, activityId);
+        const eventData = setEventData(event, activity);
 
         let token = await getStoredTokenFromFirebase(userId);
 
@@ -46,6 +50,15 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
 
         await addGoogleEventIdToFirebase(eventRessource.data.id, eventRef);
     });
+
+async function getActivityInfosFromFirebase(userId, activityId) {
+    try {
+        let activitySnapshot = await usersRef.child(userId + '/activities/' + activityId).once("value");
+        return activitySnapshot.val()
+    } catch (err) {
+        throw new Error("Problem getting activity " + activityId + " from user " + userId + ": " + err);
+    }
+}
 
 async function getStoredTokenFromFirebase(userId) {
     let tokenSnapshot;
@@ -91,23 +104,29 @@ async function getFreeTimes(token, timeMin, timeMax) {
         start: timeMin,
         end: timeMax
     };
-    let data = await usersRef.orderByChild('infos/name').equalTo("david").once("value");
-    let userId = Object.keys(data.val())[0];
-    let userInfos = data.val()[userId].infos;
-    let nightInterval = {
-        start: userInfos.maxSportEndTime || 22,
-        end: userInfos.minSportBeginTime || 8
-    };
+    const nightInterval = await getNightIntervalFromUserInfos(token);
     return await getFreeTimesFromGoogleCalendar(token, timeInterval, nightInterval);
 }
 
+async function getNightIntervalFromUserInfos(token) {
+    let data = await usersRef.orderByChild('infos/name').equalTo(token).once("value");
+    let userId = Object.keys(data.val())[0];
+    let userInfos = data.val()[userId].infos;
+    return {
+        start: userInfos.maxSportEndTime || 22,
+        end: userInfos.minSportBeginTime || 8
+    };
+}
+
 exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
-    let acitivityIdToDelete = request.query.id;
+    var id = request.query.id;
 
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
-    try {
-        let idUser = Object.keys(promesseRequeteUser.val())[0];
+
+    return promesseRequeteUser.then(data => {
+
+        var idUser = Object.keys(data.val())[0];
         const myUserRef = usersRef.child(idUser);
         const myUserActsRef = myUserRef.child('activities');
         myUserActsRef.child(acitivityIdToDelete).remove();
@@ -117,7 +136,6 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, res
         throw new Error("Can not remove the activity : " + err)
     }
 });
-
 
 exports.apiActiviteUser = functions.https.onRequest(async (request, response) => {
 
@@ -140,15 +158,15 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
     console.log("Updating Firebase User Information");
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
     try {
-        let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not found");
         } else {
             let idUser = Object.keys(promesseRequeteUser.val())[0];
             const myUserRef = usersRef.child(idUser);
             const myUserInfosRef = myUserRef.child('infos');
+            console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
             let data = {
-                address: request.headers.address,
+                address: userAddressInUrl,
                 // maxSportBeginTime: request.maxSportBeginTime,
                 // minSportBeginTime: request.minSportBeginTime,
             };
@@ -160,6 +178,7 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
         throw new Error("User not find in the database : " + err)
     }
 });
+
 
 
 exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
@@ -292,7 +311,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
 
                 donnee.confirmationDemandee = true;
                 agent.context.set({name: 'new activity - yes', lifespan: 2, parameters: donnee});
-                agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
+          //      agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
+                agent.add("dis oui")
             }
             return 0;
         } catch (err) {

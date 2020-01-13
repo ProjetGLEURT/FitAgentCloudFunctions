@@ -5,7 +5,9 @@ const readFileAsync = promisify(fs.readFile);
 
 const CREDENTIALS_FILE = "credentials.json";
 
-exports.authorize = async function (token) {
+exports.authorize = authorize;
+
+async function authorize(token) {
     let credentials = await readCredentials();
 
     const {client_secret, client_id, redirect_uris} = credentials.installed;
@@ -13,7 +15,7 @@ exports.authorize = async function (token) {
     oAuth2Client.setCredentials({access_token: token});
 
     return oAuth2Client;
-};
+}
 
 async function readCredentials() {
     try {
@@ -25,33 +27,23 @@ async function readCredentials() {
 
 }
 
-let authorizze = async function (token) {
-    let credentials = await readCredentials();
-
-    const { client_secret, client_id, redirect_uris } = credentials.installed;
-    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
-    oAuth2Client.setCredentials({ access_token: token });
-
-    return oAuth2Client;
-};
-
 async function getTokenInfosFromToken(token) {
-    let oAuth2Client = await authorizze(token);
+    let oAuth2Client = await authorize(token);
     return await oAuth2Client.getTokenInfo(token);
 }
 
 exports.getTokenFromUrl = function (request) {
-    let token = request.header("Authorization")
+    let token = request.header("Authorization");
     token = token.substr(7);
-    console.log("Token Extracted from request : ", token)
+    console.log("Token Extracted from request : ", token);
     return token
-}
+};
 
 exports.getEmailFromToken = async function (token) {
-    const tokenInfos = await getTokenInfosFromToken(token)
-    console.log("TOKEN INFO", tokenInfos)
+    const tokenInfos = await getTokenInfosFromToken(token);
+    console.log("TOKEN INFO", tokenInfos);
     return tokenInfos.email
-}
+};
 
 exports.initializeFirebaseUser = function (token, userEmail, response){
     let data = {
@@ -65,10 +57,10 @@ exports.initializeFirebaseUser = function (token, userEmail, response){
             token: token,
         },
         activities: {}
-    }
-    usersRef.push(data)
+    };
+    usersRef.push(data);
     response.send(data)
-}
+};
 
 exports.initializeFirebaseUser = function (token, userEmail, response) {
     let data = {
@@ -82,10 +74,10 @@ exports.initializeFirebaseUser = function (token, userEmail, response) {
             token: token,
         },
         activities: {}
-    }
-    usersRef.push(data)
+    };
+    usersRef.push(data);
     response.send(data)
-}
+};
 
 exports.refreshTokenInFirebase = async function (token, response, promesseRequeteUser){ //deprecated
 
@@ -94,7 +86,7 @@ exports.refreshTokenInFirebase = async function (token, response, promesseRequet
     const myUserInfosRef = myUserRef.child('infos');
     let data = {
         token: token,
-    }
-    myUserInfosRef.update(data)
+    };
+    myUserInfosRef.update(data);
     response.send(await myUserRef.once("value"))
-}
+};
