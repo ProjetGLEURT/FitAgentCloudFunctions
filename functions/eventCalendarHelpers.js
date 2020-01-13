@@ -62,36 +62,45 @@ function filterFreeTimes(freeTimes, eventDuration)
 function findBetterFreeTime(freeTimesPossible, allEvent)
 {
     //maxmin algorithm
-    let valMaxMin, valMin, indiceMin;
+    let valMaxMin, valMin;
     let indiceMaxMin = 0
+    let diff1, diff2;
     if(allEvent.length === 0){
         console.log("pas d'events encore programmés...")
         return 0
     }
-
-    valMaxMin = freeTimesPossible[0].end - allEvent[0].start
     for(var i=0;i<freeTimesPossible.length;i++)
     {
-        valMin = freeTimesPossible[i].end - allEvent[0].start
+        valMin = Math.abs(Date.parse(freeTimesPossible[i].end) - Date.parse(allEvent[0].start))
+
+
+
         for(var j=0;j<allEvent.length;j++)
         {
-            if((freeTimesPossible[i].end - allEvent[j].start) < valMin)
+
+            diff1 = Math.abs(Date.parse(freeTimesPossible[i].end) - Date.parse(allEvent[j].start))
+            diff2 = Math.abs(Date.parse(freeTimesPossible[i].start) - Date.parse(allEvent[j].end))
+            if(diff1 <= valMin)
             {
-                valMin = freeTimesPossible[i].end - allEvent[j].start;
-                indiceMin = i;
+                valMin = diff1;
             }
-            if((freeTimesPossible[i].start - allEvent[j].end) < valMin)
+            if(diff2 <= valMin)
             {
-                valMin = freeTimesPossible[i].end - allEvent[j].start;
-                indiceMin = i;
+                valMin = diff2;
             }
+        }
+        if(i===0)
+        {
+            valMaxMin = valMin
         }
         if(valMaxMin <= valMin)
         {
+
             valMaxMin = valMin
-            indiceMaxMin = indiceMin
+            indiceMaxMin = i
         }
     }
+
     return indiceMaxMin
 }
 
@@ -123,11 +132,12 @@ async function loadAllEvents(usersRef, token)
         return eventToAdd;
     }
 
-async function prepareEvent(bestInterval, eventDuration)
+function prepareEvent(bestInterval)
 {
+    console.log(bestInterval)
+    console.log("bestInterval")
     let start = bestInterval.start
-    let endTime = bestInterval.start
-    await endTime.setTime(bestInterval.start.getTime() + eventDuration*60*1000)
+    let endTime = bestInterval.end
 
     eventToAdd = {start: start.toISOString(), end: endTime.toISOString()}
     return eventToAdd;
@@ -145,6 +155,7 @@ function sectionningFreeTimesPossible(freeTimesPossible, eventDuration)
     {
         possibleSectionning = true
         initEnd = new Date(freeTimesPossible[i].end)
+        secure=0
         while(possibleSectionning && secure < 10)
         {
             let start = new Date(freeTimesPossible[i].start)
@@ -176,13 +187,16 @@ exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, t
     let eventToAdd;
     let indiceBetterFreeTime;
     let listPromesseEventToAdd = [];
+    let SelectionInterval;
     for(let i=0;i < nbEvent;i++)
     {
-        indiceBetterFreeTime = findBetterFreeTime(freeTimesPossible, allEvent)
-        eventToAdd = prepareEvent(sectionFreeTimesPossible[indiceBetterFreeTime], eventDuration) 
+        indiceBetterFreeTime = findBetterFreeTime(sectionFreeTimesPossible, allEvent)
+        console.log("sectionFreeTimesPossible[indiceBetterFreeTime]")
+        console.log(sectionFreeTimesPossible[indiceBetterFreeTime])
+        eventToAdd = prepareEvent(sectionFreeTimesPossible[indiceBetterFreeTime]) 
         allEvent.push(eventToAdd)
         
-        sectionFreeTimesPossible.splice(indiceBetterFreeTime, 1);
+        //sectionFreeTimesPossible.splice(indiceBetterFreeTime, 1);
         listPromesseEventToAdd.push(eventToAdd);
     }
 
