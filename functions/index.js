@@ -119,21 +119,20 @@ async function getNightIntervalFromUserInfos(token) {
 }
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
-    var id = request.query.id;
+    let acitivityIdToDelete = request.query.id;
 
-    let userEmail = await getEmailFromToken(getTokenFromUrl(request));
+    let userEmail = await getEmailFromToken(getTokenFromUrl(request))
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
-
-    return promesseRequeteUser.then(data => {
-
-        var idUser = Object.keys(data.val())[0];
+    try {
+        let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
         const myUserActsRef = myUserRef.child('activities');
         myUserActsRef.child(acitivityIdToDelete).remove();
         response.send("Activity delete")
-    } catch (err) {
-        response.send("Can not remove the activity : " + err);
-        throw new Error("Can not remove the activity : " + err)
+    }
+    catch (err) {
+        response.send("Can not remove the activity : ", err);
+        throw new Error("Can not remove the activity : ", err)
     }
 });
 
