@@ -104,6 +104,12 @@ dist
 .tern-port
 
 #credentials
+functions/credentials/service-account.json
+functions/credentials/firebaseconfig.json
+functions/credentials/credentials.json
+functions/credentials/keyApiGoogle.json
+functions/credentials/index copy.js
+
 functions/service-account.json
 functions/firebaseconfig.json
 functions/credentials.json

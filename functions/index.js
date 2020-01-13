@@ -38,7 +38,11 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
         const event = snapshot.val();
         const eventRef = snapshot.ref;
         const userId = context.params.userId;
-        const eventData = setEventData(event);
+
+        const activityId = context.params.activityId;
+
+        let activity = await getActivityInfosFromFirebase(userId, activityId);
+        const eventData = setEventData(event, activity);
 
         let token = await getStoredTokenFromFirebase(userId);
 
@@ -46,6 +50,15 @@ exports.addNewEventToCalendar = functions.database.ref('/users/{userId}/activiti
 
         await addGoogleEventIdToFirebase(eventRessource.data.id, eventRef);
     });
+
+async function getActivityInfosFromFirebase(userId, activityId) {
+    try {
+        let activitySnapshot = await usersRef.child(userId + '/activities/' + activityId).once("value");
+        return activitySnapshot.val()
+    } catch (err) {
+        throw new Error("Problem getting activity " + activityId + " from user " + userId + ": " + err);
+    }
+}
 
 async function getStoredTokenFromFirebase(userId) {
     let tokenSnapshot;
@@ -106,24 +119,22 @@ async function getNightIntervalFromUserInfos(token) {
 }
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
-    var id = request.query.id;
+    let acitivityIdToDelete = request.query.id;
 
-    let userEmail = await getEmailFromToken(getTokenFromUrl(request));
+    let userEmail = await getEmailFromToken(getTokenFromUrl(request))
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
-
-    return promesseRequeteUser.then(data => {
-
-        var idUser = Object.keys(data.val())[0];
+    try {
+        let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
         const myUserActsRef = myUserRef.child('activities');
         myUserActsRef.child(acitivityIdToDelete).remove();
         response.send("Activity delete")
-    })
-    .catch (err) {
-        response.send("Can not remove the activity : " + err);
-        throw new Error("Can not remove the activity : " + err)
-    });
-}
+    }
+    catch (err) {
+        response.send("Can not remove the activity : ", err);
+        throw new Error("Can not remove the activity : ", err)
+    }
+});
 
 exports.apiActiviteUser = functions.https.onRequest(async (request, response) => {
 
@@ -250,7 +261,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 console.log("SEARCHING SPORT LOCATION");
                 let dataUser = await myUserRef.once("value");
                 let addressUser = dataUser.val().infos.address;
-                let resultSearchSport = await searchLocationSport(addressUser, nameSport);
+                var resultSearchSport = await searchLocationSport(addressUser, nameSport);
                 console.log(resultSearchSport);
                 addressToPush = resultSearchSport;
                 workTimeAmount = resultSearchSport.timeInMinutes;
@@ -338,7 +349,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 lifespan: 2,
                 parameters: {guessedAddress: guessedAddress, token: token}
             });
-            agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+            //agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+            agent.add("dis oui")
         } catch (err) {
 
             throw new Error("Can't search Location: " + err)

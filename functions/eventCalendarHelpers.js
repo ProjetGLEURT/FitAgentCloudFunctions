@@ -163,7 +163,7 @@ function sectionningFreeTimesPossible(freeTimesPossible, eventDuration)
             potentialNewEnd = start.setTime(start.getTime() + 2*eventDuration*60*1000)
             if(potentialEnd > end)
             {
-                false
+                possibleSectionning = false
             }
             else
             {
