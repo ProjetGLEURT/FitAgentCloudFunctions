@@ -249,7 +249,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
 
             }
         }
-
+        date = new Date()
         const donnee = {
             name: nameSport,
             placeType: contextParameters.placeType,
@@ -260,6 +260,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             frequence: contextParameters.frequence,
             nbSeance: contextParameters.nbSeance,
             duration: seanceDurationInMinute,
+            dateOfCreation: a.getTime().toISOString(),
+            dateOfUpdating: a.getTime().toISOString(),
         };
 
         try {
@@ -332,7 +334,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 lifespan: 2,
                 parameters: {guessedAddress: guessedAddress, token: token}
             });
-            agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+            //agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+            agent.add("dis oui")
         } catch (err) {
 
             throw new Error("Can't search Location: " + err)
