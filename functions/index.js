@@ -110,7 +110,7 @@ async function getFreeTimes(token, timeMin, timeMax) {
 }
 
 async function getNightIntervalFromUserInfos(token) {
-    let data = await usersRef.orderByChild('infos/name').equalTo(token).once("value");
+    let data = await usersRef.orderByChild('infos/token').equalTo(token).once("value");
     let userId = Object.keys(data.val())[0];
     let userInfos = data.val()[userId].infos;
     return {
@@ -260,8 +260,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             frequence: contextParameters.frequence,
             nbSeance: contextParameters.nbSeance,
             duration: seanceDurationInMinute,
-            dateOfCreation: date.getTime().toISOString(),
-            dateOfUpdating: date.getTime().toISOString(),
+            dateOfCreation: date.toISOString(),
+            dateOfUpdating: date.toISOString(),
         };
 
         try {

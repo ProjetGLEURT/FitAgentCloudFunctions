@@ -79,7 +79,13 @@ console.log('là', a.toISOString())
 a.getTime()
 a.setTime(a.getTime() + 300*60*1000)
 console.log(a)
+var b = new Date()
+console.log(a-b)
+console.log(Date.parse(a))
+console.log(a)
 
 let eventDuration = 23*60;
-console.log(bbb)
-Promise.resolve(sectionningFreeTimesPossible(bbb, eventDuration)).then(data => {console.log("data : ", data)}).catch(err => {console.log(err)})
+
+
+/*console.log(bbb)
+Promise.resolve(sectionningF*/
