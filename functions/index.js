@@ -19,9 +19,8 @@ const {
     computeSeanceDuration,
     getTokenFromContext,
     searchLocationSport,
-    initializeFirebaseUser,
-    refreshTokenInFirebase,
-    } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase")
+    } = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase");
+
 
 
 const { getEmailFromToken, getTokenFromUrl } = require("./authenticationHelpers");
@@ -103,47 +102,65 @@ async function getFreeTimes(token, timeMin, timeMax) {
 }
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
-    let acitivityIdToDelete = request.query.id;
+    var id = request.query.id;
 
     let userEmail = await getEmailFromToken(getTokenFromUrl(request))
+    console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail)
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
-    try {
-        let idUser = Object.keys(promesseRequeteUser.val())[0];
+
+    return promesseRequeteUser.then(data => {
+
+        var idUser = Object.keys(data.val())[0];
         const myUserRef = usersRef.child(idUser);
         const myUserActsRef = myUserRef.child('activities');
-        myUserActsRef.child(acitivityIdToDelete).remove();
-        response.send("Activity delete")
-    }
-        catch(err) {
+        console.log("id: ")
+        console.log(id)
+        console.log("myUserActsRef")
+        console.log(myUserActsRef)
+        myUserActsRef.child(id).remove();
+        response.send("Suppression effectuée")
+        return 0;
+    })
+        .catch(err => {
             response.send("Can not remove the activity : ", err);
             throw new Error("Can not remove the activity : ", err)
-        }
+        });
 });
-
 
 exports.apiActiviteUser = functions.https.onRequest(async (request, response) => {
 
     let userEmail = await getEmailFromToken(getTokenFromUrl(request))
-    console.log("Give user activities to the user with useremail :", userEmail)
-    try {
+    console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail)
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
-        let idUser = Object.keys(promesseRequeteUser.val())[0];
-        const myUserActsRef = promesseRequeteUser.val()[idUser].activities;
+
+    return promesseRequeteUser.then(data => {
+        var idUser = Object.keys(data.val())[0];
+        const myUserActsRef = data.val()[idUser].activities;
+        //const myUserActsRef = myUserRef.child('activities');
         response.send(myUserActsRef);
-    }
-    catch (err){
-        response.send("Issue with User references ", err);
-        throw new Error("Issue with User references", err)
-    }
+        return 0;
+    })
+        .catch(err => {
+            response.send("Can not remove the activity : ", err);
+            throw new Error("Issue with User references",err)
+        });
 });
 
 
+
+
+
+
 exports.updateFirebaseInfo = functions.https.onRequest(async (request, response) =>{
-    
-    console.log("Updating Firebase User Information")
+    console.log("Requete 5 : ", request)
+    console.log("address to add", request.headers)
+    let token = request.header("Authorization")
+    console.log("address to add", token)
     let userEmail = await getEmailFromToken(getTokenFromUrl(request))
+    let userAddressInUrl = "40 cours Pasteur"
+    console.log("Email address from token", headers)
+    let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     try {
-        let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not find")
             throw new Error("404 User not find")
@@ -152,47 +169,92 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
             let idUser = Object.keys(promesseRequeteUser.val())[0];
             const myUserRef = usersRef.child(idUser);
             const myUserInfosRef = myUserRef.child('infos');
+            console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
             let data = {
-                address: request.headers.address,
+                address: userAddressInUrl,
                 // maxSportBeginTime: request.maxSportBeginTime,
                 // minSportBeginTime: request.minSportBeginTime,
             }
+            console.log("Data to add : ",data)
+
             myUserInfosRef.update(data)
-            response.send("Address updated")
+            console.log("Updated user info ")
+
+            response.send("BRAVO")
         }
     }
     catch (err) {
-        response.send("User not find in the database")
-        throw new Error("User not find in the database : ", err)
+        response.send("user not find in the database")
+        throw new Error("User not find in the Database", err)
     }
 });
+
 
 
 exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
     try {
         let token = getTokenFromUrl(request)
         let userEmail = await getEmailFromToken(getTokenFromUrl(request))
+        console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail )
         let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
+        console.log("EMAILMEAIL EMAIL EAMIL EMAIL MAIL", userEmail)
+        console.log(promesseRequeteUser)
         try {
             if (promesseRequeteUser === undefined || promesseRequeteUser === null ) {
                 console.log("REQUEST USER = NUL")
-                initializeFirebaseUser(token, userEmail, response)
+                let data = {
+                    infos:
+                    {
+                        name: userEmail,
+                        minSportBeginTime: "8",
+                        maxSportBeginTime: "21",
+                        email: userEmail,
+                        address: "",
+                        token: token,
+                    },
+                    activities: {}
+                }
+                console.log("URL TO PUSH", usersRef)
+                usersRef.push(data)
+                console.log("Pushed data", data)
+
+                response.send(data)
             }
             else {
-                // await refreshTokenInFirebase(token, response, myUserRef) // deprecated
+                console.log("User find in the database")
+                console.log(JSON.stringify(promesseRequeteUser,null,4))
+                console.log("Id : ")
                 let idUser = Object.keys(promesseRequeteUser.val())[0];
+                console.log("USER ID", idUser)
                 const myUserRef = usersRef.child(idUser);
                 const myUserInfosRef = myUserRef.child('infos');
+                console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
                 let data = {
                     token: token,
                 }
+                console.log("MIS A JOURS DU TOKEN")
                 myUserInfosRef.update(data)
+                console.log("infos", await myUserInfosRef.once("value"))
+
                 response.send(await myUserRef.once("value"))
             }
         }
         catch (err) {
-            console.log("Error  while searching user in the database")
-            initializeFirebaseUser(token, userEmail, response)
+            console.log("Catch REQUEST USER = NUL")
+            let data = {
+                infos:
+                {
+                    name: userEmail,
+                    minSportBeginTime: "8",
+                    maxSportBeginTime: "22",
+                    email: userEmail,
+                    address: "",
+                    token: token,
+                },
+                activities: {}
+            }
+            usersRef.push(data)
+            response.send(data)
             throw new Error("This should not happend, user not Find", err)
         }
     }
@@ -333,7 +395,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
             donnee.confirmationDemandee = true;
             agent.context.set({ name: 'new activity - yes', lifespan: 2, parameters: donnee });
-            agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
+            //agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
+            agent.add("dis oui")
         }
         return 0;
         }
@@ -368,10 +431,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             let distanceInKm = resultSearchSport.distanceInKm;
             agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: token } });
             agent.context.set({ name: 'new activity - address', lifespan: 2, parameters: { guessedAddress: guessedAddress, token: token } });
-            agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+            //agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
+            agent.add("dis oui")
         }
         catch(err){
-
             throw new Error("Can't search Location",err)
         }
     }
@@ -381,7 +444,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             let contextParameters = getContextParameters(agent, 'newactivity-followup');
             console.log(agent.contexts)
             agent.context.set({ name: 'newactivity-token', lifespan: 5, parameters: { token: getTokenFromContext(agent) } });
-            agent.add(`Combien de séance ${contextParameters.frequence} de ${contextParameters.sport} ?`)
+            // agent.add(`Combien de séance ${contextParameters.frequence} de ${contextParameters.sport} ?`)
+            agent.add("?")
         }
         catch(err){
             throw new Error ("Probably issue with token", err)
