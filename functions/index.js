@@ -260,14 +260,16 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined) {
                 workTimeAmount = contextParameters.workTime.amount;
             } else {
-                console.log("SEARCHING SPORT LOCATION");
+                console.log("SEARCHING SPORT location");
                 let dataUser = await myUserRef.once("value");
                 let addressUser = dataUser.val().infos.address;
-                let resultSearchSport = await searchLocationSport(addressUser, nameSport);
+                var resultSearchSport = await searchLocationSport(addressUser, nameSport);
                 console.log(resultSearchSport);
                 addressToPush = resultSearchSport;
                 workTimeAmount = resultSearchSport.timeInMinutes;
                 homeTimeAmount = 1
+                console.log("sport find");
+
             }
         }
 
