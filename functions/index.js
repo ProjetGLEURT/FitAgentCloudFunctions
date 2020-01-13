@@ -157,6 +157,7 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
     console.log("Updating Firebase User Information");
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
     try {
+        let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not found");
         } else {
