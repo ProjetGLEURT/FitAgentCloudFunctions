@@ -91,14 +91,18 @@ async function getFreeTimes(token, timeMin, timeMax) {
         start: timeMin,
         end: timeMax
     };
-    let data = await usersRef.orderByChild('infos/name').equalTo("david").once("value");
+    const nightInterval = await getNightIntervalFromUserInfos(token);
+    return await getFreeTimesFromGoogleCalendar(token, timeInterval, nightInterval);
+}
+
+async function getNightIntervalFromUserInfos(token) {
+    let data = await usersRef.orderByChild('infos/name').equalTo(token).once("value");
     let userId = Object.keys(data.val())[0];
     let userInfos = data.val()[userId].infos;
-    let nightInterval = {
+    return {
         start: userInfos.maxSportEndTime || 22,
         end: userInfos.minSportBeginTime || 8
     };
-    return await getFreeTimesFromGoogleCalendar(token, timeInterval, nightInterval);
 }
 
 exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, response) => {
