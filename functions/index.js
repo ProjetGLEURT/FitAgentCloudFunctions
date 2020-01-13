@@ -156,7 +156,7 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not found");
         } else {
-            updateAddressInFirebase(request.headers.address, usersRef, promesseRequeteUser, response)
+            updateAddressInFirebase(request.headers, usersRef, promesseRequeteUser, response)
         }
     } catch (err) {
         response.send("User not find in the database");
