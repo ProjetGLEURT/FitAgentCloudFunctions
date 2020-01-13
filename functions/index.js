@@ -252,7 +252,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
 
             }
         }
-
+        date = new Date()
         const donnee = {
             name: nameSport,
             placeType: contextParameters.placeType,
@@ -263,6 +263,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             frequence: contextParameters.frequence,
             nbSeance: contextParameters.nbSeance,
             duration: seanceDurationInMinute,
+            dateOfCreation: a.getTime().toISOString(),
+            dateOfUpdating: a.getTime().toISOString(),
         };
 
         try {
