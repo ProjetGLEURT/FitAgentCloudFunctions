@@ -14,18 +14,19 @@ firebase.initializeApp(firebaseConfig);
 
 const dbRef = firebase.database().ref();
 const usersRef = dbRef.child('users');
-const {
-    getContextParameters,
+const {getContextParameters,
     computeSeanceDuration,
     getTokenFromContext,
-    searchLocationSport,
-    initializeFirebaseUser,
-} = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase");
-
-
+    searchLocationSport,} = require("./dialogflowFirebaseFulfillment/addUserActivityToFirebase");
+const { initializeFirebaseUser,
+        refreshTokenInFirebase,
+        updateAddressInFirebase,
+        deleteActivityInFirebase} = require("./firebaseInteraction");
 const {getEmailFromToken, getTokenFromUrl} = require("./authenticationHelpers");
-const {addNewEventToGoogleCalendar, setEventData, deleteEventFromGoogleCalendar, getFreeTimesFromGoogleCalendar}
-    = require('./googleCalendarHelpers');
+const {addNewEventToGoogleCalendar, 
+        setEventData, 
+        deleteEventFromGoogleCalendar,
+        getFreeTimesFromGoogleCalendar} = require('./googleCalendarHelpers');
 const {addActivityEvents, getIntervalPeriod} = require('./eventCalendarHelpers');
 
 /**
@@ -125,11 +126,7 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, res
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     console.log(`Delete the user activitiy ${acitivityIdToDelete} to the user ${userEmail}`);
     try {
-        let idUser = Object.keys(promesseRequeteUser.val())[0];
-        const myUserRef = usersRef.child(idUser);
-        const myUserActsRef = myUserRef.child('activities');
-        myUserActsRef.child(acitivityIdToDelete).remove();
-        response.send("Activity delete")
+        deleteActivityInFirebase(acitivityIdToDelete, usersRef, promesseRequeteUser, response)
     }
     catch (err) {
         response.send("Can not remove the activity : ", err);
@@ -162,17 +159,7 @@ exports.updateFirebaseInfo = functions.https.onRequest(async (request, response)
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not found");
         } else {
-            let idUser = Object.keys(promesseRequeteUser.val())[0];
-            const myUserRef = usersRef.child(idUser);
-            const myUserInfosRef = myUserRef.child('infos');
-            console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
-            let data = {
-                address: userAddressInUrl,
-                // maxSportBeginTime: request.maxSportBeginTime,
-                // minSportBeginTime: request.minSportBeginTime,
-            };
-            myUserInfosRef.update(data);
-            response.send("Address updated")
+            updateAddressInFirebase(userAddressInUrl, usersRef, promesseRequeteUser, response)
         }
     } catch (err) {
         response.send("User not find in the database");
@@ -186,23 +173,16 @@ exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     try {
-        if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
+        if (Object.keys(promesseRequeteUser.val())[0] === undefined || Object.keys(promesseRequeteUser.val())[0] === null) {
             console.log("REQUEST USER = NUL");
             initializeFirebaseUser(getTokenFromUrl(request), userEmail, response)
         } else {
-            // await refreshTokenInFirebase(token, response, myUserRef) // deprecated
-            let idUser = Object.keys(promesseRequeteUser.val())[0];
-            const myUserRef = usersRef.child(idUser);
-            const myUserInfosRef = myUserRef.child('infos');
-            let data = {
-                token: getTokenFromUrl(request),
-            };
-            myUserInfosRef.update(data);
-            response.send(await myUserRef.once("value"))
+            console.log("User Find");
+            refreshTokenInFirebase(getTokenFromUrl(request), usersRef, promesseRequeteUser, response ) // deprecated
         }
     } catch (err) {
-        console.log("Error  while searching user in the database");
-        initializeFirebaseUser(getTokenFromUrl(request), userEmail, response);
+        console.log("Error  while searching user in the database. THIS SHOULD NOT BE DONE LIKE THAT");
+        initializeFirebaseUser(getTokenFromUrl(request), userEmail, usersRef, response);    // WARNING, there is an issu with the condition promessRequetUser
         throw new Error("This should not happen, user not Found: " + err)
     }
 });
@@ -260,7 +240,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined) {
                 workTimeAmount = contextParameters.workTime.amount;
             } else {
-                console.log("SEARCHING SPORT LOCATION");
+                console.log("SEARCHING SPORT location");
                 let dataUser = await myUserRef.once("value");
                 let addressUser = dataUser.val().infos.address;
                 var resultSearchSport = await searchLocationSport(addressUser, nameSport);
@@ -268,6 +248,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 addressToPush = resultSearchSport;
                 workTimeAmount = resultSearchSport.timeInMinutes;
                 homeTimeAmount = 1
+                console.log("sport find");
+
             }
         }
 
