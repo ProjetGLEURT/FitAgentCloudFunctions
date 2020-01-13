@@ -123,6 +123,7 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, res
 
     let userEmail = await getEmailFromToken(getTokenFromUrl(request))
     let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
+    console.log(`Delete the user activitiy ${acitivityIdToDelete} to the user ${userEmail}`);
     try {
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserRef = usersRef.child(idUser);
@@ -139,9 +140,9 @@ exports.apiSupprimerActiviteUser = functions.https.onRequest(async (request, res
 exports.apiActiviteUser = functions.https.onRequest(async (request, response) => {
 
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
+    let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
     console.log("Give user activities to the user with useremail :", userEmail);
     try {
-        let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
         let idUser = Object.keys(promesseRequeteUser.val())[0];
         const myUserActsRef = promesseRequeteUser.val()[idUser].activities;
         response.send(myUserActsRef);
@@ -154,8 +155,9 @@ exports.apiActiviteUser = functions.https.onRequest(async (request, response) =>
 
 exports.updateFirebaseInfo = functions.https.onRequest(async (request, response) => {
 
-    console.log("Updating Firebase User Information");
     let userEmail = await getEmailFromToken(getTokenFromUrl(request));
+    let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
+    console.log("Updating Firebase User Information");
     try {
         if (promesseRequeteUser === undefined || promesseRequeteUser === null) {
             response.send("404 User not found");
