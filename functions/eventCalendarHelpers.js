@@ -1,4 +1,5 @@
 const firebase = require('firebase');
+const functions = require('firebase-functions');
 
 
 Date.prototype.addDays = function(days) {
@@ -60,11 +61,14 @@ function filterFreeTimes(freeTimes, eventDuration)
 function findBetterFreeTime(freeTimesPossible, allEvent)
 {
     //maxmin algorithm
-    let indiceMaxMin, valMaxMin, valMin,  indiceMin;
+    let valMaxMin, valMin, indiceMin;
+    let indiceMaxMin = 0
     if(allEvent.length === 0){
         console.log("pas d'events encore programmés...")
         return 0
     }
+
+    valMaxMin = freeTimesPossible[0].end - allEvent[0].start
     for(var i=0;i<freeTimesPossible.length;i++)
     {
         valMin = freeTimesPossible[i].end - allEvent[0].start
@@ -81,10 +85,10 @@ function findBetterFreeTime(freeTimesPossible, allEvent)
                 indiceMin = i;
             }
         }
-        if(valMaxMin < valMin)
+        if(valMaxMin <= valMin)
         {
             valMaxMin = valMin
-            indiceMaxMin = iMin
+            indiceMaxMin = indiceMin
         }
     }
     return indiceMaxMin
@@ -116,26 +120,35 @@ async function loadAllEvents(usersRef, token)
     return allEvent;
 }
 
-async function addEvent(eventToAdd, refActivity, token)
+async function addEvent(eventToAdd, refActivity, token, usersRef)
 {
     let promesseRequeteUser = await usersRef.orderByChild('infos/token').equalTo(token).once("value");
-    refActivity.push(eventToAdd);
+    console.log("refActivity")
+    console.log(refActivity)
+    console.log("eventToAdd")
+    console.log(eventToAdd)
+    refActivity.child('events').push(eventToAdd);
     return eventToAdd;
 }
 
 async function prepareEvent(bestInterval, eventDuration)
 {
-    let endTime = await bestInterval.start.setTime(bestInterval.start.getTime() + eventDuration*60*1000)
+    let start = bestInterval.start
+    let endTime = bestInterval.start
+    await endTime.setTime(bestInterval.start.getTime() + eventDuration*60*1000)
+
     console.log("LÀ UNE DATE")
-    console.log(bestInterval.start)
+    console.log(start)
     console.log("LÀ UNE DATE")
     console.log(end)
-    eventToAdd = {start: bestInterval.start.toISOString(), end: endTime.toISOString()}
+    eventToAdd = {start: start.toISOString(), end: endTime.toISOString()}
     return eventToAdd;
 }
 
-exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, token, usersRef, period, refActivity)
+exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, token, usersRef, refActivity)
 {
+    console.log("usersRef")
+    console.log(usersRef)
     let freeTimesPossible = filterFreeTimes(freeTimes, eventDuration)
     let j;
     let allEvent = await loadAllEvents(usersRef, token);
@@ -145,26 +158,34 @@ exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, t
     let listEventToAdd = [];
     for(let i=0;i < nbEvent;i++)
     {
+        console.log("all")
         console.log(allEvent)
         indiceBetterFreeTime = findBetterFreeTime(freeTimesPossible, allEvent)
         console.log("freeTimesPossible")
+        console.log(indiceBetterFreeTime)
+        console.log("indiceBetterFreeTime")
         console.log(freeTimesPossible)
+     //   let start = freeTimesPossible[indiceBetterFreeTime].start
         eventToAdd = prepareEvent(freeTimesPossible[indiceBetterFreeTime], eventDuration) //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
         allEvent.push(eventToAdd)
-        let start = freeTimesPossible[indiceBetterFreeTime].start
-        freeTimesPossible[indiceBetterFreeTime].start = start.setTime(start.getTime() + eventDuration*60*1000 );
-        if(hasToBeFiltered(freeTimesPossible[indiceBetterFreeTime], millisecondEventDuration))
-        {
+        
+       // freeTimesPossible[indiceBetterFreeTime].start = await start.setTime(start.getTime() + eventDuration*60*1000 );
+        //if(hasToBeFiltered(freeTimesPossible[indiceBetterFreeTime], millisecondEventDuration))
+        //{
             freeTimesPossible.splice(indiceBetterFreeTime, 1);
-        }    
+        //}    
         listEventToAdd.push(eventToAdd);
     }
-    for(let i=0;i<listEventToAdd.length;i++){
-
-        PromiseArray.push(addEvent(eventToAdd, refActivity, token)); //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
+    mesEvents = await Promise.all(listEventToAdd)
+    listAdded = []
+    for(let i=0;i<mesEvents.length;i++){
+        listAdded.push(addEvent(mesEvents[i], refActivity, token, usersRef)); //return event : {start:event.dateTimeStart, end:event.dateTimeEnd}
     }
+    await Promise.all(listAdded)
 
-    await Promise.all(promiseArray)
+
+
+
 
 
 }
