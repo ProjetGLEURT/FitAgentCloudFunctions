@@ -236,22 +236,24 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 distanceInKm = resultSearchSport.distanceInKm
             }
         }
-        let date = new Date()
-        const donnee = {
-            name: nameSport,
-            placeType: contextParameters.placeType,
-            address: addressToPush,
-            kmToSport: distanceInKm,
-            homeTime: 1,   // Unused legacy value, present for compatibilty
-            workTime: workTimeAmount,
-            frequence: contextParameters.frequence,
-            nbSeance: contextParameters.nbSeance,
-            duration: seanceDurationInMinute,
-            dateOfCreation: date.toISOString(),
-            dateOfUpdating: date.toISOString(),
-        };
+
 
         try {
+            let date = new Date()
+            const donnee = {
+                name: nameSport,
+                placeType: contextParameters.placeType,
+                address: addressToPush,
+                kmToSport: distanceInKm,
+                homeTime: 1,   // Unused legacy value, present for compatibilty
+                workTime: workTimeAmount,
+                frequence: contextParameters.frequence,
+                nbSeance: contextParameters.nbSeance,
+                duration: seanceDurationInMinute,
+                dateOfCreation: date.toISOString(),
+                dateOfUpdating: date.toISOString(),
+            };
+            
             let data = await myUserActsRef.orderByChild('name').equalTo(nameSport).once("value");
             let contextParameters = getContextParameters(agent, 'newactivity-followup');
             console.log("Existing data in the database : ", data.val());
@@ -270,20 +272,23 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                         let token = getTokenFromContext(agent);
                         let time = getIntervalPeriod(0, donnee.frequence);
                         let freeTimes = await getFreeTimes(token, time.begin, time.end);
+                        console.log("freeTimes : ", freeTimes)
                         let totalTime = workTimeAmount +seanceDurationInMinute;
                         await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
                         if(donnee.frequence === "hebdomadaire")
                         {
                             let time = getIntervalPeriod(1, donnee.frequence);
                             let freeTimes = await getFreeTimes(token, time.begin, time.end);
+                            console.log("freeTimes : 1", freeTimes)
                             await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
-
                             time = getIntervalPeriod(2, donnee.frequence);
                             freeTimes = await getFreeTimes(token, time.begin, time.end);
+                            console.log("freeTimes : 2", freeTimes)
                             await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
                     
                             time = getIntervalPeriod(3, donnee.frequence);
                             freeTimes = await getFreeTimes(token, time.begin, time.end);
+                            console.log("freeTimes : 3", freeTimes)
                             await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
                         }
                         return 1;
@@ -295,7 +300,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                     throw new Error("Issue with the period activity", err)
                 }
                 console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
-                agent.add(`${contextParameters.nbSeance} séances de ${seanceDurationInMinute} minutes ${contextParameters.sport}, ${contextParameters.frequence}, `);
+                agent.add(`${contextParameters.nbSeance} séances ${contextParameters.frequence} de ${seanceDurationInMinute} minutes de ${contextParameters.sport}`);
                 console.log("THE END")
 
             } else {
@@ -337,6 +342,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 lifespan: 2,
                 parameters: {guessedAddress: guessedAddress, token: token}
             });
+            agent.add(`address `);
+
             agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
         } catch (err) {
 
