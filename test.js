@@ -1,3 +1,6 @@
+
+const {HttpClient} = require('./functions/dialogflowFirebaseFulfillment/httpRequest')
+
 Date.prototype.addDays = function(days) {
     this.setDate( this.getDate()  + days);
     return this;
@@ -73,7 +76,7 @@ bbb = new Array()
 bbb.push(getIntervalPeriod(2, "week"))
 bbb.push(getIntervalPeriod(3, "week"))*/
 bbb.push(getIntervalPeriod(3, "month"))
-
+/*
 var a = new Date()
 console.log('là', a.toISOString())
 a.getTime()
@@ -85,7 +88,33 @@ console.log(Date.parse(a))
 console.log(a)
 
 let eventDuration = 23*60;
-
+*/
 
 /*console.log(bbb)
 Promise.resolve(sectionningF*/
+
+var datetest = new Date()
+
+
+
+function dateFormatForApi(date)
+{
+    let stringConversionMonth = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+    let stringConversionDay = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12',
+    '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31']
+    let chaineDate = date.getFullYear() + '-' + stringConversionMonth[date.getMonth()] + '-' + stringConversionDay[date.getDate()] + ' 13:00:00';
+    console.log(chaineDate)
+    
+    return chaineDate;
+}
+
+
+let client = new HttpClient()
+client.get(`https://www.infoclimat.fr/public-api/gfs/json?_ll=44.8333,-0.5667
+&_auth=CBJQR1MtAyFRfAYxVSNVfAVtDjsBdwcgVChQM1g9AH0CaVAxAGBRNwBuVSgDLAQyAC0EZww3BzcBalYuWykHZghiUDxTOANkUT4GY1V6VX4FKw5vASEHIFQ%2FUDdYKwBiAmBQPAB9UTIAalU0Ay0EMQA2BGIMLAcgAWNWNFsxB2wIYlAwUzQDYlE%2BBm1VelV%2BBTMOOwE%2FB2xUZFAwWDYAZgJnUDMAZlE0AG5VNgMtBDAANgRnDDMHPgFiVjRbPgd7CHRQTVNDA3xRfgYmVTBVJwUrDjsBYAdr&_c=0741890848ffe9f18aca8160e26719c8`
+, async res => {
+    console.log("Response of the request api meteo");
+    resJson = JSON.parse(res)
+    console.log(resJson[dateFormatForApi(datetest)].pluie);
+    return 1;
+});

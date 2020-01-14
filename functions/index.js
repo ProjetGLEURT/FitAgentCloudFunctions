@@ -10,6 +10,8 @@ const functions = require('firebase-functions');
 const firebase = require('firebase');
 const firebaseConfig = require("./firebaseconfig.json");
 
+const {HttpClient} = require('./dialogflowFirebaseFulfillment/httpRequest')
+
 firebase.initializeApp(firebaseConfig);
 
 const dbRef = firebase.database().ref();
@@ -280,20 +282,36 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 console.log("Sport à ajouter :", contextParameters.sport);
                 console.log("Duré :", seanceDurationInMinute);
                 try {
-                    let token = getTokenFromContext(agent);
-                    let time = getIntervalPeriod(1, donnee.frequence);
-                    let freeTimes = await getFreeTimes(token, time.begin, time.end);
-                    await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
-                    if(donnee.frequence === "hebdomadaire")
-                    {
-                        time = getIntervalPeriod(2, donnee.frequence);
-                        freeTimes = await getFreeTimes(token, time.begin, time.end);
-                        await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
-                   
-                        time = getIntervalPeriod(3, donnee.frequence);
-                        freeTimes = await getFreeTimes(token, time.begin, time.end);
-                        await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
-                    }
+
+                        
+                    let client = new HttpClient()
+                    await client.get(`https://www.infoclimat.fr/public-api/gfs/json?_ll=44.8333,-0.5667
+                    &_auth=CBJQR1MtAyFRfAYxVSNVfAVtDjsBdwcgVChQM1g9AH0CaVAxAGBRNwBuVSgDLAQyAC0EZww3BzcBalYuWykHZghiUDxTOANkUT4GY1V6VX4FKw5vASEHIFQ%2FUDdYKwBiAmBQPAB9UTIAalU0Ay0EMQA2BGIMLAcgAWNWNFsxB2wIYlAwUzQDYlE%2BBm1VelV%2BBTMOOwE%2FB2xUZFAwWDYAZgJnUDMAZlE0AG5VNgMtBDAANgRnDDMHPgFiVjRbPgd7CHRQTVNDA3xRfgYmVTBVJwUrDjsBYAdr&_c=0741890848ffe9f18aca8160e26719c8`
+                    , async res => {
+                        console.log("Response of the request api meteo");
+                        let meteoJson = JSON.parse(res)
+                        let token = getTokenFromContext(agent);
+                        let time = getIntervalPeriod(0, donnee.frequence);
+                        let freeTimes = await getFreeTimes(token, time.begin, time.end);
+                        await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+                        if(donnee.frequence === "hebdomadaire")
+                        {
+                            let time = getIntervalPeriod(1, donnee.frequence);
+                            let freeTimes = await getFreeTimes(token, time.begin, time.end);
+                            await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+
+                            time = getIntervalPeriod(2, donnee.frequence);
+                            freeTimes = await getFreeTimes(token, time.begin, time.end);
+                            await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+                    
+                            time = getIntervalPeriod(3, donnee.frequence);
+                            freeTimes = await getFreeTimes(token, time.begin, time.end);
+                            await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+                        }
+                        return 1;
+
+                    });
+
                 } catch (err) {
                     console.log("Error adding news events : ");
                     console.log(err)

@@ -59,12 +59,23 @@ function filterFreeTimes(freeTimes, eventDuration)
     return freeTimes;
 }
 
-function findBetterFreeTime(freeTimesPossible, allEvent)
+function dateFormatForApi(date)
+{
+    let stringConversionMonth = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+    let stringConversionDay = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12',
+    '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31']
+    let chaineDate = date.getFullYear() + '-' + stringConversionMonth[date.getMonth()] + '-' + stringConversionDay[date.getDate()-1] + ' 13:00:00';
+    
+    return chaineDate;
+}
+
+function findBetterFreeTime(freeTimesPossible, allEvent, meteoJson)
 {
     //maxmin algorithm
     let valMaxMin, valMin;
     let indiceMaxMin = 0
     let diff1, diff2;
+    let coeffPluie=1;
     if(allEvent.length === 0){
         console.log("pas d'events encore programmés...")
         return 0
@@ -76,12 +87,24 @@ function findBetterFreeTime(freeTimesPossible, allEvent)
         console.log(valMin)*/
 
 
+        if(meteoJson[dateFormatForApi(freeTimesPossible[i].start)] !== undefined)
+        {
+            console.log("ON A LA METEO")
+            if(meteoJson[dateFormatForApi(freeTimesPossible[i].start)].pluie > 0 )
+            {
+                console.log("ALERTE IL VA PLEUVOIR !!!!")
+                coeffPluie = 0.6;
+            }
+        }
+        else{
+            pluie = 1
+        }
 
         for(var j=0;j<allEvent.length;j++)
         {
 
-            diff1 = Math.abs(Date.parse(freeTimesPossible[i].end) - Date.parse(allEvent[j].start))
-            diff2 = Math.abs(Date.parse(freeTimesPossible[i].start) - Date.parse(allEvent[j].end))
+            diff1 = Math.abs(Date.parse(freeTimesPossible[i].end) - Date.parse(allEvent[j].start)) * coeffPluie;
+            diff2 = Math.abs(Date.parse(freeTimesPossible[i].start) - Date.parse(allEvent[j].end)) * coeffPluie;
             if(diff1 <= valMin)
             {
                 valMin = diff1;
@@ -186,7 +209,7 @@ function sectionningFreeTimesPossible(freeTimesPossible, eventDuration)
     return sectionFreeTimesPossible
 }
 
-exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, token, usersRef, refActivity)
+exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, token, usersRef, refActivity, meteoJson)
 {
     let freeTimesPossible = filterFreeTimes(freeTimes, eventDuration)
     let sectionFreeTimesPossible = sectionningFreeTimesPossible(freeTimesPossible, eventDuration)
@@ -198,7 +221,7 @@ exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, t
     let listPromesseEventToAdd = [];
     for(let i=0;i < nbEvent;i++)
     {
-        indiceBetterFreeTime = findBetterFreeTime(sectionFreeTimesPossible, allEvent)
+        indiceBetterFreeTime = findBetterFreeTime(sectionFreeTimesPossible, allEvent, meteoJson)
         console.log("sectionFreeTimesPossible[indiceBetterFreeTime]")
         console.log(sectionFreeTimesPossible[indiceBetterFreeTime])
         eventToAdd = prepareEvent(sectionFreeTimesPossible[indiceBetterFreeTime]) 
