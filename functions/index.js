@@ -220,6 +220,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
         let workTimeAmount;
         let addressToPush = contextParameters.address;
         let distanceInKm = "non renseigné";     // This is standard value to allow to push
+        let resultSearchSport = 10;
         if (addressToPush === undefined) {
             addressToPush = "non renseigné";
             if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined) {
@@ -269,20 +270,21 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                         let token = getTokenFromContext(agent);
                         let time = getIntervalPeriod(0, donnee.frequence);
                         let freeTimes = await getFreeTimes(token, time.begin, time.end);
-                        await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+                        let totalTime = workTimeAmount +seanceDurationInMinute;
+                        await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
                         if(donnee.frequence === "hebdomadaire")
                         {
                             let time = getIntervalPeriod(1, donnee.frequence);
                             let freeTimes = await getFreeTimes(token, time.begin, time.end);
-                            await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+                            await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
 
                             time = getIntervalPeriod(2, donnee.frequence);
                             freeTimes = await getFreeTimes(token, time.begin, time.end);
-                            await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+                            await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
                     
                             time = getIntervalPeriod(3, donnee.frequence);
                             freeTimes = await getFreeTimes(token, time.begin, time.end);
-                            await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity, meteoJson)
+                            await addActivityEvents(freeTimes, donnee.nbSeance, totalTime, token, usersRef, refActivity, meteoJson)
                         }
                         return 1;
 
