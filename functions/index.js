@@ -187,13 +187,6 @@ exports.apiInfosUser = functions.https.onRequest(async (request, response) => {
 
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request, response) => {
     const agent = new WebhookClient({request, response});
-    console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
-    console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
-
-
-    // Uncomment and edit to make your own intent handler
-    // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
-    // below to get this function to be run when a Dialogflow intent is matched
 
     async function addUserActivityToFirebase(agent) {
         let userEmail = await getEmailFromToken(getTokenFromContext(agent));
@@ -226,15 +219,11 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             confirmationDemandee = true*/
         let nameSport = contextParameters.sport;
 
-
-        let homeTimeAmount;
         let workTimeAmount;
         let addressToPush = contextParameters.address;
-        var resultSearchSport = 10;
+        let distanceInKm = "non renseigné";     // This is standard value to allow to push
         if (addressToPush === undefined) {
-            if (contextParameters.homeTime !== undefined && contextParameters.homeTime.amount !== undefined) {
-                homeTimeAmount = contextParameters.homeTime.amount;
-            }
+ 
             if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined) {
                 workTimeAmount = contextParameters.workTime.amount;
             } else {
@@ -242,12 +231,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 let dataUser = await myUserRef.once("value");
                 let addressUser = dataUser.val().infos.address;
                 resultSearchSport = await searchLocationSport(addressUser, nameSport);
-                console.log(resultSearchSport);
+                console.log("Sport find", resultSearchSport);
                 addressToPush = resultSearchSport;
                 workTimeAmount = resultSearchSport.timeInMinutes;
-                homeTimeAmount = 1
-                console.log("sport find");
-
+                distanceInKm = resultSearchSport.distanceInKm
             }
         }
         let date = new Date()
@@ -255,8 +242,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             name: nameSport,
             placeType: contextParameters.placeType,
             address: addressToPush,
-            kmToSport: resultSearchSport.distanceInKm,
-            homeTime: homeTimeAmount,
+            kmToSport: distanceInKm,
+            homeTime: 1,   // Unused legacy value, present for compatibilty
             workTime: workTimeAmount,
             frequence: contextParameters.frequence,
             nbSeance: contextParameters.nbSeance,
@@ -273,12 +260,9 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             console.log("Data to add to database", donnee);
 
             if (data.val() === null || confirmationDemandee) {
-                agent.add(`Votre activité a été  `);
-                //type lieu = dehors, salle, chez soi
                 let refActivity = myUserActsRef.push(donnee);
                 //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-                console.log("Sport à ajouter :", contextParameters.sport);
-                console.log("Duré :", seanceDurationInMinute);
+
                 try {
                     let token = getTokenFromContext(agent);
                     let time = getIntervalPeriod(1, donnee.frequence);
@@ -299,19 +283,19 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                     throw new Error("Issue with the period activity", err)
                 }
                 console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
-                agent.add(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
+                agent.add(`Votre activité a été ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
                 console.log("THE END")
 
             } else {
 
                 donnee.confirmationDemandee = true;
                 agent.context.set({name: 'new activity - yes', lifespan: 2, parameters: donnee});
-               agent.add(`Vous voulez ajouter un sport ayant déja une activité associé, Validez-vous votre ajout ?`);
+                agent.add(`Il existe déjà une activité lié à ce sport. Validez-vous votre ajout ?`);
             }
             return 0;
         } catch (err) {
             agent.add(`ERROR votre activité n'a pas pu être ajouté. Désoler du dérangement`);
-            throw new Error("Activity can't be add to the database " + err)
+            throw new Error("Activity can't be add to the database ", err)
         }
     }
 
@@ -322,15 +306,12 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
         try {
             let token = getTokenFromContext(agent);
             let userEmail = await getEmailFromToken(getTokenFromContext(agent));
-            console.log("Email get from context", userEmail);
             let promesseRequeteUser = await usersRef.orderByChild('infos/email').equalTo(userEmail).once("value");
             let idUser = Object.keys(promesseRequeteUser.val())[0];
             const myUserRef = usersRef.child(idUser);
-            console.log("Id of user", idUser);
 
             let dataUser = await myUserRef.once("value");
             let addressUser = dataUser.val().infos.address;
-            console.log("Address get from database", addressUser);
 
             let contextParameters = getContextParameters(agent, 'newactivity-followup');
             let nameSport = contextParameters.sport;
@@ -338,7 +319,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             console.log(resultSearchSport);
             let guessedAddress = resultSearchSport.address;
             let distanceInKm = resultSearchSport.distanceInKm;
-            agent.context.set({name: 'newactivity-token', lifespan: 5, parameters: {token: token}});
             agent.context.set({
                 name: 'new activity - address',
                 lifespan: 2,
