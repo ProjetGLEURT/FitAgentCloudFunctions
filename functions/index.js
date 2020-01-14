@@ -204,16 +204,12 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
 
         let contextParameters = getContextParameters(agent, 'newactivity-followup');
         let ParametersAskedValidation = getContextParameters(agent, 'new activity - yes'); //context used to ask validation if activity already exist in the database
-        let seanceDurationInMinute = computeSeanceDuration(contextParameters);
-
         let confirmationDemandee = false;
         try {
             console.log("Parameters asked validation : ");
             console.log(ParametersAskedValidation);
             confirmationDemandee = ParametersAskedValidation.confirmationDemandee;
         } catch (error) {
-            console.log("ERROR 1005 : ");
-            console.log(error);
             confirmationDemandee = false;
             throw new Error(`Check dialogflow context ` + error)
         }
@@ -225,7 +221,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
         let addressToPush = contextParameters.address;
         let distanceInKm = "non renseigné";     // This is standard value to allow to push
         if (addressToPush === undefined) {
- 
+            addressToPush = "non renseigné";
             if (contextParameters.workTime !== undefined && contextParameters.workTime.amount !== undefined) {
                 workTimeAmount = contextParameters.workTime.amount;
             } else {
@@ -249,7 +245,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             workTime: workTimeAmount,
             frequence: contextParameters.frequence,
             nbSeance: contextParameters.nbSeance,
-            duration: seanceDurationInMinute,
+            duration: computeSeanceDuration(contextParameters),
             dateOfCreation: date.toISOString(),
             dateOfUpdating: date.toISOString(),
         };
@@ -258,16 +254,12 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             let data = await myUserActsRef.orderByChild('name').equalTo(nameSport).once("value");
             let contextParameters = getContextParameters(agent, 'newactivity-followup');
             console.log("Existing data in the database : ", data.val());
-            console.log("parameters", contextParameters);
             console.log("Data to add to database", donnee);
 
             if (data.val() === null || confirmationDemandee) {
                 let refActivity = myUserActsRef.push(donnee);
                 //const userRef = dbRef.child('users/' + e.target.getAttribute("userid"));
-
-                try {
-
-                        
+                try {            
                     let client = new HttpClient()
                     await client.get(`https://www.infoclimat.fr/public-api/gfs/json?_ll=44.8333,-0.5667
                     &_auth=CBJQR1MtAyFRfAYxVSNVfAVtDjsBdwcgVChQM1g9AH0CaVAxAGBRNwBuVSgDLAQyAC0EZww3BzcBalYuWykHZghiUDxTOANkUT4GY1V6VX4FKw5vASEHIFQ%2FUDdYKwBiAmBQPAB9UTIAalU0Ay0EMQA2BGIMLAcgAWNWNFsxB2wIYlAwUzQDYlE%2BBm1VelV%2BBTMOOwE%2FB2xUZFAwWDYAZgJnUDMAZlE0AG5VNgMtBDAANgRnDDMHPgFiVjRbPgd7CHRQTVNDA3xRfgYmVTBVJwUrDjsBYAdr&_c=0741890848ffe9f18aca8160e26719c8`
@@ -297,7 +289,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                     });
 
                 } catch (err) {
-                    console.log("Error adding news events : ");
+                    agent.add(`ERROR votre activité n'a pas pu être ajouté. Désoler du dérangement`);
                     throw new Error("Issue with the period activity", err)
                 }
                 console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
@@ -313,6 +305,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             return 0;
         } catch (err) {
             agent.add(`ERROR votre activité n'a pas pu être ajouté. Désoler du dérangement`);
+            console.log("Request failed parameters", contextParameters);
             throw new Error("Activity can't be add to the database ", err)
         }
     }
