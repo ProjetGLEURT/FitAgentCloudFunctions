@@ -293,7 +293,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                     throw new Error("Issue with the period activity", err)
                 }
                 console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
-                agent.add(`Votre activité a été ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
+                agent.add(`${contextParameters.nbSeance} séances de ${seanceDurationInMinute} minutes ${contextParameters.sport}, ${contextParameters.frequence}, `);
                 console.log("THE END")
 
             } else {
