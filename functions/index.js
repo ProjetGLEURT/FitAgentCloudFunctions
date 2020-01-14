@@ -285,7 +285,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                     await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
                 } catch (err) {
                     console.log("Error adding news events : ");
-                    console.log(err)
+                    throw new Error("Issue with the period activity", err)
                 }
                 console.log(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
                 agent.add(`ajouté avec succès : ${contextParameters.sport}, ${contextParameters.frequence}, ${seanceDurationInMinute} minutes`);
@@ -295,8 +295,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
 
                 donnee.confirmationDemandee = true;
                 agent.context.set({name: 'new activity - yes', lifespan: 2, parameters: donnee});
-          //      agent.add(`Le sport que vous souhaitez ajouter possède déjà des activités, voulez-vous confirmer votre ajout ?`);
-                agent.add("dis oui")
+               agent.add(`Vous voulez ajouter un sport ayant déja une activité associé, Validez-vous votre ajout ?`);
             }
             return 0;
         } catch (err) {
@@ -334,8 +333,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 lifespan: 2,
                 parameters: {guessedAddress: guessedAddress, token: token}
             });
-            //agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
-            agent.add("dis oui")
+            agent.add(`Nous vous suggérons de faire votre activité à ${guessedAddress} à environ ${distanceInKm} km de chez vous, cela vous convient-il ?`);
         } catch (err) {
 
             throw new Error("Can't search Location: " + err)
