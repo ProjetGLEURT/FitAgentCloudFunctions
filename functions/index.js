@@ -216,7 +216,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
         /*if(agent.contexts[agent.contexts.length-2]!==undefined && agent.contexts[agent.contexts.length-2].parameters.confirmationDemandee === true)
             confirmationDemandee = true*/
         let nameSport = contextParameters.sport;
-
+        let seanceDurationInMinute = computeSeanceDuration(contextParameters) // Duration is rused severals time
         let workTimeAmount;
         let addressToPush = contextParameters.address;
         let distanceInKm = "non renseigné";     // This is standard value to allow to push
@@ -245,7 +245,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
             workTime: workTimeAmount,
             frequence: contextParameters.frequence,
             nbSeance: contextParameters.nbSeance,
-            duration: computeSeanceDuration(contextParameters),
+            duration: seanceDurationInMinute,
             dateOfCreation: date.toISOString(),
             dateOfUpdating: date.toISOString(),
         };
