@@ -72,6 +72,8 @@ function findBetterFreeTime(freeTimesPossible, allEvent)
     for(var i=0;i<freeTimesPossible.length;i++)
     {
         valMin = Math.abs(Date.parse(freeTimesPossible[i].end) - Date.parse(allEvent[0].start))
+    /*    console.log("valMin")
+        console.log(valMin)*/
 
 
 
@@ -113,13 +115,18 @@ async function loadAllEvents(usersRef, token)
     const allActivities = myUserRef.val()['activities'];
     const allEvent = []
     const keysActivity = Object.keys(allActivities)
-    for(var i=0;i<allActivities.length;i++)
+    for(var i=0;i<keysActivity.length;i++)
     {
-        const eventsOfActivity = allActivities[keysActivity[i]]['events'];
+        let eventsOfActivity = allActivities[keysActivity[i]]['events'];
+
+        if(eventsOfActivity === undefined)
+            break;
         let keysEventOfActivity = Object.keys(eventsOfActivity)
+
+        let event
         for(var j=0;j<keysEventOfActivity.length;j++)
         {
-            const event = allActivities[keysEventOfActivity[j]]['events'];
+            event = eventsOfActivity[keysEventOfActivity[j]];
             allEvent.push({start:Date.parse(event.dateTimeStart), end:Date.parse(event.dateTimeEnd)})
         }
     }
@@ -184,10 +191,11 @@ exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, t
     let freeTimesPossible = filterFreeTimes(freeTimes, eventDuration)
     let sectionFreeTimesPossible = sectionningFreeTimesPossible(freeTimesPossible, eventDuration)
     let allEvent = await loadAllEvents(usersRef, token);
+    console.log("allEvent")
+    console.log(allEvent)
     let eventToAdd;
     let indiceBetterFreeTime;
     let listPromesseEventToAdd = [];
-    let SelectionInterval;
     for(let i=0;i < nbEvent;i++)
     {
         indiceBetterFreeTime = findBetterFreeTime(sectionFreeTimesPossible, allEvent)
@@ -198,6 +206,10 @@ exports.addActivityEvents = async function (freeTimes, nbEvent, eventDuration, t
         
         //sectionFreeTimesPossible.splice(indiceBetterFreeTime, 1);
         listPromesseEventToAdd.push(eventToAdd);
+        if(i > sectionFreeTimesPossible.length)
+        {
+            break;
+        }
     }
 
     mesEvents = await Promise.all(listPromesseEventToAdd)

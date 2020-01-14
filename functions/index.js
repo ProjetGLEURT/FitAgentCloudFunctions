@@ -230,6 +230,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
         let homeTimeAmount;
         let workTimeAmount;
         let addressToPush = contextParameters.address;
+        var resultSearchSport = 10;
         if (addressToPush === undefined) {
             if (contextParameters.homeTime !== undefined && contextParameters.homeTime.amount !== undefined) {
                 homeTimeAmount = contextParameters.homeTime.amount;
@@ -240,7 +241,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                 console.log("SEARCHING SPORT location");
                 let dataUser = await myUserRef.once("value");
                 let addressUser = dataUser.val().infos.address;
-                var resultSearchSport = await searchLocationSport(addressUser, nameSport);
+                resultSearchSport = await searchLocationSport(addressUser, nameSport);
                 console.log(resultSearchSport);
                 addressToPush = resultSearchSport;
                 workTimeAmount = resultSearchSport.timeInMinutes;
@@ -283,6 +284,16 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest(async (request
                     let time = getIntervalPeriod(1, donnee.frequence);
                     let freeTimes = await getFreeTimes(token, time.begin, time.end);
                     await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
+                    if(donnee.frequence === "hebdomadaire")
+                    {
+                        time = getIntervalPeriod(2, donnee.frequence);
+                        freeTimes = await getFreeTimes(token, time.begin, time.end);
+                        await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
+                   
+                        time = getIntervalPeriod(3, donnee.frequence);
+                        freeTimes = await getFreeTimes(token, time.begin, time.end);
+                        await addActivityEvents(freeTimes, donnee.nbSeance, seanceDurationInMinute, token, usersRef, refActivity)
+                    }
                 } catch (err) {
                     console.log("Error adding news events : ");
                     console.log(err)
