@@ -20,14 +20,6 @@ exports.getContextParameters = function (agent, name) {
     return agent.contexts[getNumContext(agent,name)].parameters
 }
 
-exports.getEmailFromContext = function (agent) {
-    let numContext = getNumContext(agent, 'test11');
-    let contextParameters = agent.contexts[numContext].parameters;
-    if (contextParameters !== undefined && contextParameters.email !== undefined) {
-        return contextParameters.email
-    }
-    return ''
-}
 
 exports.getTokenFromContext = function (agent) {
     let numContext = getNumContext(agent, 'test11');

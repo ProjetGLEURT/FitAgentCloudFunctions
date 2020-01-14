@@ -4,8 +4,8 @@ exports.initializeFirebaseUser = function (token, userEmail, usersRef, response)
         infos:
         {
             name: userEmail,
-            minSportBeginTime: "8",
-            maxSportEndTime: "22",
+            minSportBeginTime: '8',
+            maxSportEndTime: '22',
             email: userEmail,
             address: "",
             token: token,
@@ -30,15 +30,19 @@ exports.refreshTokenInFirebase = async function (token, usersRef, promesseRequet
 };
 
 
-exports.updateAddressInFirebase = function (userAddressInUrl, usersRef, promesseRequeteUser, response) {
+exports.updateAddressInFirebase = function (requestHeader, usersRef, promesseRequeteUser, response) {
     let idUser = Object.keys(promesseRequeteUser.val())[0];
     const myUserRef = usersRef.child(idUser);
     const myUserInfosRef = myUserRef.child('infos');
     console.log("User info : ", JSON.stringify(myUserInfosRef, null, 4))
+    console.log("header : ", requestHeader)
+    console.log(requestHeader.address)
+
     let data = {
-        address: userAddressInUrl,
-        // maxSportBeginTime: request.maxSportBeginTime,
-        // minSportBeginTime: request.minSportBeginTime,
+        address: requestHeader.address,
+        // requestheader.address === undefined ? address : userAddressInUrl, : stop = true;
+        minSportBeginTime: requestHeader.minsportbegintime,
+        maxSportEndTime: requestHeader.maxsportendtime,
     };
     myUserInfosRef.update(data);
     response.send("Address updated")
